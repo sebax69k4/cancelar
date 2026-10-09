@@ -1,0 +1,8 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import LoginPage from '@/components/islands/LoginPage';
+---
+
+<BaseLayout title="Iniciar sesión">
+  <LoginPage client:only="react" />
+</BaseLayout>

@@ -1,0 +1,11 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ShellFallback from '@/components/layout/ShellFallback.astro';
+import DesignSystemPage from '@/components/islands/DesignSystemPage';
+---
+
+<BaseLayout title="Sistema de diseño">
+  <DesignSystemPage client:only="react">
+    <ShellFallback slot="fallback" />
+  </DesignSystemPage>
+</BaseLayout>
