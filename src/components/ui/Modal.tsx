@@ -30,7 +30,11 @@ export function Modal({ open, onClose, title, description, icon, children, foote
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      // React no aplica autoFocus dentro de <dialog>: enfocamos el campo marcado
+      dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    }
     if (!open && dialog.open) dialog.close();
   }, [open]);
 

@@ -1,11 +1,11 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ShellFallback from '@/components/layout/ShellFallback.astro';
-import PlaceholderPage from '@/components/islands/PlaceholderPage';
+import DashboardPage from '@/components/islands/DashboardPage';
 ---
 
 <BaseLayout title="Dashboard">
-  <PlaceholderPage client:only="react" currentPath="/dashboard" title="Dashboard" permission="nav.dashboard" phase={2}>
+  <DashboardPage client:only="react">
     <ShellFallback slot="fallback" />
-  </PlaceholderPage>
+  </DashboardPage>
 </BaseLayout>

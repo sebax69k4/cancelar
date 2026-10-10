@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   theme: 'st.theme',
   session: 'st.session',
   db: 'st.db.v1',
+  clock: 'st.clock.offsetHours',
 } as const;
 
 export function readStorage(key: string): string | null {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AlertTriangle, CheckCircle2, Info, X, XCircle, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { dismissToast, getToasts, subscribeToasts, type ToastItem, type ToastType } from '@/lib/toast';
+import { consumeFlashToast, dismissToast, getToasts, subscribeToasts, type ToastItem, type ToastType } from '@/lib/toast';
 
 const meta: Record<ToastType, { icon: LucideIcon; className: string; label: string }> = {
   success: { icon: CheckCircle2, className: 'text-success', label: 'Éxito' },
@@ -77,6 +77,7 @@ const empty: readonly ToastItem[] = [];
 
 export function Toaster() {
   const items = useSyncExternalStore(subscribeToasts, getToasts, () => empty);
+  useEffect(() => consumeFlashToast(), []);
   const polite = items.filter((t) => t.type !== 'error');
   const assertive = items.filter((t) => t.type === 'error');
 

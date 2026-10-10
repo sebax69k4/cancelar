@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { NoAccess } from '@/components/auth/PermissionGuard';
 import { LoadingState } from '@/components/ui/States';
 import { Toaster } from '@/components/ui/Toast';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useDashboard } from '@/hooks/useDashboard';
+import { queryClient } from '@/lib/api/queryClient';
 import { can, type Permission } from '@/lib/auth/permissions';
 import { RoleSwitcher } from './RoleSwitcher';
 import { Sidebar } from './Sidebar';
@@ -15,14 +18,24 @@ export interface AppShellProps {
   title: string;
   description?: ReactNode;
   actions?: ReactNode;
-  counts?: Partial<Record<string, number>>;
+  /** La página renderiza su propio encabezado (y su <h1>). */
+  customHeader?: boolean;
   children: ReactNode;
 }
 
-export function AppShell({ currentPath, permission, title, description, actions, counts, children }: AppShellProps) {
+export function AppShell(props: AppShellProps) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ShellInner {...props} />
+    </QueryClientProvider>
+  );
+}
+
+function ShellInner({ currentPath, permission, title, description, actions, customHeader, children }: AppShellProps) {
   const user = useCurrentUser();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const dashboard = useDashboard({ enabled: user !== null && can(user.rol, 'nav.alertas') });
 
   useEffect(() => {
     if (!user) {
@@ -34,6 +47,7 @@ export function AppShell({ currentPath, permission, title, description, actions,
   if (!user) return <LoadingState label="Redirigiendo al inicio de sesión…" className="h-dvh" />;
 
   const allowed = !permission || can(user.rol, permission);
+  const counts = { '/alertas': dashboard.data?.alertasPendientes ?? 0 };
 
   return (
     <div className="flex min-h-dvh">
@@ -46,12 +60,13 @@ export function AppShell({ currentPath, permission, title, description, actions,
       <Sidebar currentPath={currentPath} counts={counts} mobileOpen={menuOpen} onMobileClose={closeMenu} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setMenuOpen(true)} />
-        <main id="contenido" tabIndex={-1} className="flex-1 px-4 py-6 focus:outline-none md:px-6">
+        <main id="contenido" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 focus:outline-none md:px-6">
           <div className="mb-4 sm:hidden">
             <RoleSwitcher />
           </div>
           {allowed ? (
             <>
+              {!customHeader && (
               <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
                 <div className="min-w-0">
                   <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
@@ -59,6 +74,7 @@ export function AppShell({ currentPath, permission, title, description, actions,
                 </div>
                 {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
               </div>
+              )}
               {children}
             </>
           ) : (

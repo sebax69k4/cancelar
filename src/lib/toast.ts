@@ -49,3 +49,33 @@ export function subscribeToasts(l: Listener): () => void {
 export function getToasts(): readonly ToastItem[] {
   return items;
 }
+
+// ---- Toast "flash": sobrevive a una redirección (se muestra en la página siguiente)
+
+const FLASH_KEY = 'st.flash';
+
+interface FlashToast {
+  type: ToastType;
+  title: string;
+  description?: string;
+}
+
+export function flashToast(type: ToastType, title: string, description?: string): void {
+  try {
+    window.sessionStorage.setItem(FLASH_KEY, JSON.stringify({ type, title, description } satisfies FlashToast));
+  } catch {
+    /* sin sessionStorage: se pierde el aviso, no es crítico */
+  }
+}
+
+export function consumeFlashToast(): void {
+  try {
+    const raw = window.sessionStorage.getItem(FLASH_KEY);
+    if (!raw) return;
+    window.sessionStorage.removeItem(FLASH_KEY);
+    const f = JSON.parse(raw) as FlashToast;
+    push(f.type, f.title, { description: f.description });
+  } catch {
+    /* ignorado */
+  }
+}

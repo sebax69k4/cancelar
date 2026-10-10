@@ -1,11 +1,11 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ShellFallback from '@/components/layout/ShellFallback.astro';
-import PlaceholderPage from '@/components/islands/PlaceholderPage';
+import NewOrderPage from '@/components/islands/NewOrderPage';
 ---
 
 <BaseLayout title="Nueva orden">
-  <PlaceholderPage client:only="react" currentPath="/ordenes/nueva" title="Nueva orden" permission="order.create" phase={3}>
+  <NewOrderPage client:only="react">
     <ShellFallback slot="fallback" />
-  </PlaceholderPage>
+  </NewOrderPage>
 </BaseLayout>

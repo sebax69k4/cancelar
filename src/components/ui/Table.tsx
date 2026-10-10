@@ -3,7 +3,7 @@ import { cn } from '@/lib/cn';
 
 export function Table({ className, caption, children, ...rest }: HTMLAttributes<HTMLTableElement> & { caption?: string }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className={cn('w-full border-collapse text-left text-sm', className)} {...rest}>
         {caption && <caption className="sr-only">{caption}</caption>}
         {children}

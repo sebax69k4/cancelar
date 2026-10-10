@@ -31,6 +31,7 @@ export function formatHours(hours: number): string {
 
 export function formatRelative(iso: string, now: number = Date.now()): string {
   const diffMin = Math.round((new Date(iso).getTime() - now) / 60000);
+  if (Math.abs(diffMin) < 1) return 'recién';
   if (Math.abs(diffMin) < 60) return relFmt.format(diffMin, 'minute');
   const diffH = Math.round(diffMin / 60);
   if (Math.abs(diffH) < 48) return relFmt.format(diffH, 'hour');

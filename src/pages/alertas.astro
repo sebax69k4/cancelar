@@ -1,11 +1,11 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ShellFallback from '@/components/layout/ShellFallback.astro';
-import PlaceholderPage from '@/components/islands/PlaceholderPage';
+import AlertsPage from '@/components/islands/AlertsPage';
 ---
 
 <BaseLayout title="Alertas">
-  <PlaceholderPage client:only="react" currentPath="/alertas" title="Alertas" permission="nav.alertas" phase={2}>
+  <AlertsPage client:only="react">
     <ShellFallback slot="fallback" />
-  </PlaceholderPage>
+  </AlertsPage>
 </BaseLayout>

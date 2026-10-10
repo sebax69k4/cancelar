@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
@@ -75,3 +75,29 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     </button>
   );
 });
+
+export function buttonClassName(variant: ButtonVariant = 'primary', size: ButtonSize = 'md', className?: string): string {
+  return cn(
+    'inline-flex shrink-0 items-center justify-center rounded-md font-semibold whitespace-nowrap transition-colors',
+    variants[variant],
+    sizes[size],
+    className,
+  );
+}
+
+export interface LinkButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
+  href: string;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  leftIcon?: ReactNode;
+}
+
+/** Enlace con apariencia de botón (navegación). */
+export function LinkButton({ variant, size, leftIcon, className, children, ...rest }: LinkButtonProps) {
+  return (
+    <a className={buttonClassName(variant, size, className)} {...rest}>
+      {leftIcon}
+      {children}
+    </a>
+  );
+}

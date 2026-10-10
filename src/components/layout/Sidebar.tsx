@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { can } from '@/lib/auth/permissions';
 import { cn } from '@/lib/cn';
+import { DemoPanel } from './DemoPanel';
 import { NAV_ITEMS, isActive } from './nav';
 
 export interface SidebarProps {
@@ -62,14 +63,6 @@ function NavList({ currentPath, counts }: Pick<SidebarProps, 'currentPath' | 'co
   );
 }
 
-function DemoNote() {
-  return (
-    <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-[11px] leading-snug text-muted">
-      <strong className="font-semibold text-fg">Versión demo.</strong> Los datos se guardan solo en este navegador.
-    </p>
-  );
-}
-
 export function Sidebar({ currentPath, counts, mobileOpen, onMobileClose }: SidebarProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -91,7 +84,7 @@ export function Sidebar({ currentPath, counts, mobileOpen, onMobileClose }: Side
         <nav aria-label="Principal" className="flex-1">
           <NavList currentPath={currentPath} counts={counts} />
         </nav>
-        <DemoNote />
+        <DemoPanel />
       </aside>
 
       {/* Móvil / tablet: drawer */}
@@ -108,7 +101,7 @@ export function Sidebar({ currentPath, counts, mobileOpen, onMobileClose }: Side
             <nav aria-label="Principal" className="flex-1">
               <NavList currentPath={currentPath} counts={counts} />
             </nav>
-            <DemoNote />
+            <DemoPanel />
           </aside>
         </div>
       )}

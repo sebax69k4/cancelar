@@ -1,11 +1,11 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ShellFallback from '@/components/layout/ShellFallback.astro';
-import PlaceholderPage from '@/components/islands/PlaceholderPage';
+import OrdersBoardPage from '@/components/islands/OrdersBoardPage';
 ---
 
 <BaseLayout title="Órdenes">
-  <PlaceholderPage client:only="react" currentPath="/ordenes" title="Órdenes" permission="nav.ordenes" phase={2}>
+  <OrdersBoardPage client:only="react">
     <ShellFallback slot="fallback" />
-  </PlaceholderPage>
+  </OrdersBoardPage>
 </BaseLayout>

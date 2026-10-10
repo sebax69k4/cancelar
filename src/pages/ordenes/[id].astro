@@ -1,12 +1,16 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ShellFallback from '@/components/layout/ShellFallback.astro';
-import PlaceholderPage from '@/components/islands/PlaceholderPage';
-export const prerender = false; // id dinámico: la orden vive en localStorage
+import OrderDetailPage from '@/components/islands/OrderDetailPage';
+
+// id dinámico: en la demo la orden vive en localStorage, así que no se puede prerenderizar
+export const prerender = false;
+
+const id = Astro.params.id ?? '';
 ---
 
-<BaseLayout title="Detalle de orden">
-  <PlaceholderPage client:only="react" currentPath="/ordenes" title="Detalle de orden" permission="nav.ordenes" phase={4}>
+<BaseLayout title="Orden de servicio">
+  <OrderDetailPage client:only="react" id={id}>
     <ShellFallback slot="fallback" />
-  </PlaceholderPage>
+  </OrderDetailPage>
 </BaseLayout>

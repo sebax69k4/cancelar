@@ -37,7 +37,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, children 
 
   return (
     <div>
-      <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border">
+      <div role="tablist" aria-label={label} className="relative flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border">
         {tabs.map((t, i) => {
           const selected = t.id === value;
           return (
