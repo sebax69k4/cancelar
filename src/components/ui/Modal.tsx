@@ -24,6 +24,7 @@ const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl' } as const;
  */
 export function Modal({ open, onClose, title, description, icon, children, footer, size = 'md', busy }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const pressedBackdrop = useRef(false);
   const titleId = useId();
   const descId = useId();
 
@@ -56,8 +57,14 @@ export function Modal({ open, onClose, title, description, icon, children, foote
         e.preventDefault();
         if (!busy) onClose();
       }}
+      // Cerrar al hacer clic en el fondo, solo si el clic EMPEZÓ en el fondo: seleccionar texto
+      // dentro del modal y soltar afuera no debe cerrarlo (se perdería lo escrito)
+      onMouseDown={(e) => {
+        pressedBackdrop.current = e.target === ref.current;
+      }}
       onClick={(e) => {
-        if (e.target === ref.current && !busy) onClose();
+        if (e.target === ref.current && pressedBackdrop.current && !busy) onClose();
+        pressedBackdrop.current = false;
       }}
       className={cn(
         'ui-window m-auto w-[calc(100%-2rem)] rounded-lg border border-border bg-surface p-0 text-fg shadow-pop',

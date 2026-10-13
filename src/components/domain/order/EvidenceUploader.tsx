@@ -5,11 +5,16 @@ import { cn } from '@/lib/cn';
 import { formatDateTime } from '@/lib/format';
 import { notifyError } from '@/lib/notify';
 import { toast } from '@/lib/toast';
-import { MOCK_USERS } from '@/mocks/users';
+import { useUsers } from '@/hooks/useCatalog';
+import { isMockApi } from '@/lib/api/config';
 import type { Evidencia } from '@/types/domain';
 import type { EvidenceInput } from '@/lib/api/apiClient';
 
-const ACCEPT = 'image/*,application/pdf';
+/** Igual que EVIDENCE_MIME_TYPES del backend: sin SVG (puede contener scripts). */
+const ACCEPTED_TYPES: readonly string[] = [
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'application/pdf',
+];
+const ACCEPT = ACCEPTED_TYPES.join(',');
 const MAX_MB = 10;
 
 export interface EvidenceUploaderProps {
@@ -18,6 +23,8 @@ export interface EvidenceUploaderProps {
   busy?: boolean;
   onAdd: (file: EvidenceInput) => Promise<unknown>;
   onRemove: (id: string) => Promise<unknown>;
+  /** URL del archivo (null en la demo, donde el archivo no se guarda). */
+  fileUrl?: (evidenciaId: string) => string | null;
 }
 
 function formatSize(kb: number): string {
@@ -25,18 +32,19 @@ function formatSize(kb: number): string {
 }
 
 /**
- * Adjuntador MOCK: solo registra nombre, tipo y tamaño del archivo.
- * El archivo no se sube ni se guarda. Con backend real: POST multipart a /orders/:id/evidence.
+ * Adjuntador de evidencia. En la demo solo registra nombre, tipo y tamaño;
+ * con backend el archivo se sube (multipart a /orders/:id/evidence) y se puede abrir.
  */
-export function EvidenceUploader({ evidencias, canEdit, busy, onAdd, onRemove }: EvidenceUploaderProps) {
+export function EvidenceUploader({ evidencias, canEdit, busy, onAdd, onRemove, fileUrl }: EvidenceUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const users = useUsers();
 
   async function handleFiles(list: FileList | null) {
     if (!list) return;
     for (const f of Array.from(list)) {
-      if (!f.type.startsWith('image/') && f.type !== 'application/pdf') {
-        toast.warning(`«${f.name}» no es una imagen ni un PDF`);
+      if (!ACCEPTED_TYPES.includes(f.type)) {
+        toast.warning(`«${f.name}» no es una foto (JPG, PNG, WebP, GIF, HEIC) ni un PDF`);
         continue;
       }
       if (f.size > MAX_MB * 1024 * 1024) {
@@ -82,7 +90,9 @@ export function EvidenceUploader({ evidencias, canEdit, busy, onAdd, onRemove }:
             </Button>
           </p>
           <p className="text-xs text-muted">
-            Demo: solo se registra el nombre y el tamaño, el archivo no se sube. Máx. {MAX_MB} MB.
+            {isMockApi
+              ? `Demo: solo se registra el nombre y el tamaño, el archivo no se sube. Máx. ${MAX_MB} MB.`
+              : `Imágenes o PDF, máx. ${MAX_MB} MB por archivo.`}
           </p>
           <input
             ref={inputRef}
@@ -105,12 +115,20 @@ export function EvidenceUploader({ evidencias, canEdit, busy, onAdd, onRemove }:
         <ul className="divide-y divide-border rounded-lg border border-border">
           {evidencias.map((ev) => {
             const Icon = ev.tipoMime === 'application/pdf' ? FileText : FileImage;
-            const who = MOCK_USERS.find((u) => u.id === ev.subidaPorId)?.nombre ?? '—';
+            const who = users.data?.find((u) => u.id === ev.subidaPorId)?.nombre ?? '—';
+            const url = fileUrl?.(ev.id) ?? null;
             return (
               <li key={ev.id} className="flex items-center gap-3 px-3 py-2">
                 <Icon className="size-5 shrink-0 text-muted" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{ev.nombreArchivo}</p>
+                  {url ? (
+                    <a href={url} target="_blank" rel="noopener" className="block truncate text-sm font-medium text-primary hover:underline">
+                      {ev.nombreArchivo}
+                      <span className="sr-only"> (abre en una pestaña nueva)</span>
+                    </a>
+                  ) : (
+                    <p className="truncate text-sm font-medium">{ev.nombreArchivo}</p>
+                  )}
                   <p className="text-xs text-muted">
                     {formatSize(ev.tamanoKb)} · {who} · {formatDateTime(ev.fecha)}
                   </p>

@@ -24,6 +24,7 @@ import { ErrorState, Skeleton } from '@/components/ui/States';
 import { Tabs } from '@/components/ui/Tabs';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useOrder, useOrderActions } from '@/hooks/useOrder';
+import { apiClient } from '@/lib/api/apiClient';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import { can } from '@/lib/auth/permissions';
 import { cn } from '@/lib/cn';
@@ -344,6 +345,7 @@ function Detail({ id }: { id: string }) {
                     busy={actions.addEvidence.isPending}
                     onAdd={(f) => actions.addEvidence.mutateAsync(f)}
                     onRemove={(evId) => actions.removeEvidence.mutateAsync(evId)}
+                    fileUrl={(evId) => apiClient.evidenceFileUrl(order.id, evId)}
                   />
                 </section>
                 <section aria-labelledby="cl-title" className="flex flex-col gap-2">

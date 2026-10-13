@@ -1,11 +1,12 @@
 ---
+// Todas las pantallas internas usan la misma isla: la navegación entre ellas no recarga la página.
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ShellFallback from '@/components/layout/ShellFallback.astro';
-import DesignSystemPage from '@/components/islands/DesignSystemPage';
+import App from '@/components/islands/App';
 ---
 
 <BaseLayout title="Sistema de diseño">
-  <DesignSystemPage client:only="react">
+  <App client:only="react">
     <ShellFallback slot="fallback" />
-  </DesignSystemPage>
+  </App>
 </BaseLayout>

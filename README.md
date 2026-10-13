@@ -2,7 +2,7 @@
 
 Frontend del sistema interno de workflow para un servicio técnico de PC y notebooks: recepción de equipos, órdenes de servicio, tablero Kanban, prioridad por impacto × urgencia, alertas de órdenes críticas y cierre con solución, evidencia y validación.
 
-> **Versión demo.** No hay backend: todos los datos se guardan **en el navegador** (localStorage) y la app **arranca vacía**. La capa `apiClient` está lista para cambiarse por la API REST de NestJS (ver [Conectar con NestJS](#conectar-con-el-backend-nestjs)).
+> **Dos modos.** Con el backend NestJS (`../backend`) los datos viven en la base y el login es real. Sin `PUBLIC_API_URL` en `.env`, funciona como **demo**: los datos se guardan en el navegador (localStorage) y la app arranca vacía. Ver [Conectar con el backend NestJS](#conectar-con-el-backend-nestjs).
 
 ---
 
@@ -50,7 +50,8 @@ Abre http://localhost:4321. También se puede iniciar en segundo plano con `npx 
 
 | Comando | Qué hace |
 |---|---|
-| `npm run dev` | Servidor de desarrollo con recarga en caliente. |
+| `npm run dev` | Servidor de desarrollo con recarga en caliente (conectado al backend si `.env` tiene `PUBLIC_API_URL`). |
+| `npm run dev:demo` | Igual, pero en modo demo: sin backend, datos en el navegador. |
 | `npm run check` | Chequeo de tipos de TypeScript y Astro (debe dar 0 errores). |
 | `npm run build` | Compila para producción en `dist/` (servidor Node standalone). |
 | `npm run preview` | Sirve el build de producción localmente. |
@@ -154,6 +155,16 @@ src/
 
 **Regla de dependencias:** `components → hooks → lib/api/apiClient → mocks`. Ningún componente importa `mocks/db.ts`.
 
+### Navegación sin recargas
+
+Todas las pantallas internas cargan la misma isla, `src/components/islands/App.tsx`, que elige la pantalla según la URL (`src/lib/router.ts`). Al hacer clic en un enlace interno se actualiza el historial y cambia el contenido **sin recargar la página**: la sesión y los datos ya descargados se conservan, así que la pantalla aparece al instante. Además:
+
+- Al pasar el mouse o el foco por un enlace se precargan los datos de esa pantalla (`src/lib/api/prefetch.ts`); al cargar la app se precargan, en un momento libre, las secciones del menú.
+- Los enlaces siguen siendo enlaces normales: recargar, abrir en pestaña nueva (Ctrl+clic), atrás/adelante y compartir la URL funcionan igual.
+- En cada cambio de pantalla se actualiza el título de la pestaña, se vuelve arriba y el foco pasa al contenido (lectores de pantalla).
+- Para navegar desde código usá `navigate('/ruta')` de `src/lib/router.ts` en lugar de `window.location`.
+- Una ruta nueva se agrega en `resolve()` de `App.tsx`, en `APP_ROUTE` de `router.ts` y como página `.astro` que monta `<App client:only="react">`.
+
 La página `/design` muestra el sistema de diseño (paleta, tipografía y componentes).
 
 ### Estilos visuales
@@ -183,120 +194,60 @@ Los datos son por navegador: otro navegador u otra PC ven el sistema vacío. Var
 
 ## Conectar con el backend NestJS
 
-La UI nunca llama a `fetch` directamente: todo pasa por la interfaz `ApiClient` (`src/lib/api/apiClient.ts`). Hay dos implementaciones:
+El backend ya está implementado en `../backend` (NestJS + Prisma + SQLite). Su README tiene la puesta en marcha, los usuarios iniciales, la referencia de la API y la guía para pasar a PostgreSQL.
 
-- `MockApiClient`: la demo actual, en localStorage.
-- `HttpApiClient` (`src/lib/api/httpApiClient.ts`): **ya implementado** contra los endpoints de abajo.
+La UI nunca llama a `fetch` directamente: todo pasa por la interfaz `ApiClient` (`src/lib/api/apiClient.ts`), con dos implementaciones que se eligen en `src/lib/api/config.ts`:
 
-### 1. Activar el cliente HTTP
+| `PUBLIC_API_URL` en `.env` | Cliente | Sesión |
+|---|---|---|
+| vacío o sin definir | `MockApiClient` (localStorage) | simulada, con selector de rol |
+| `http://localhost:3000/api` | `HttpApiClient` (backend) | real: email + contraseña, cookie HTTP-only |
+
+### Levantar todo junto
+
+En `backend/`:
 
 ```bash
-cp .env.example .env
+npm run start:dev
 ```
 
-Editá `.env`:
+En `frontend/` (con `PUBLIC_API_URL=http://localhost:3000/api` en `.env`):
 
-```env
-PUBLIC_API_URL=http://localhost:3000/api
+```bash
+npm run dev
 ```
 
-Reiniciá `npm run dev`. Con `PUBLIC_API_URL` definido se usa `HttpApiClient` y desaparece el panel *Versión demo*. Sin definir, vuelve al mock.
+Entrá a http://localhost:4321 con un usuario de `backend/README.md`.
 
-### 2. Preparar NestJS (`backend/src/main.ts`)
+Para usar el **modo demo** sin tocar `.env` (no necesita backend; usa `.env.demo`):
 
-```ts
-import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import cookieParser from 'cookie-parser';
-import helmet from 'helmet';
-import { AppModule } from './app.module';
-
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
-  app.use(helmet());
-  app.use(cookieParser());
-  app.enableCors({ origin: 'http://localhost:4321', credentials: true }); // cookies de sesión
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  await app.listen(process.env.PORT ?? 3000);
-}
-void bootstrap();
+```bash
+npm run dev:demo
 ```
 
-### 3. Endpoints que espera el frontend
+### Qué cambia en modo backend
 
-Las respuestas deben tener **la forma de los tipos de `src/types/domain.ts`** (nombres de campos en español, fechas ISO 8601, ids string). `OrdenResumen` incluye las relaciones (`cliente`, `equipo`, `servicio`, `responsable`, `tecnico`) y los campos calculados `horasAbierta`, `atrasada`, `criticaVencida`.
+- **Login**: `/login` pide email y contraseña reales (`POST /auth/login`). La sesión se recupera al cargar cada página con `GET /auth/me` (`src/lib/auth/mockCurrentUser.ts`, misma API en ambos modos). Si el backend responde 401 (sesión vencida), se vuelve al login.
+- **Sin controles de demo**: no hay selector de rol, reloj simulado ni «Reiniciar demo».
+- **Evidencia real**: el archivo se sube como multipart y el nombre en la lista abre el archivo guardado.
+- **Reglas**: el frontend sigue usando `src/lib/workflow/` para explicar qué falta antes de enviar; el backend aplica las mismas reglas (copia en `backend/src/domain/`) y responde 422 con `details`. Si cambiás una regla, cambiala en los dos lados.
 
-| Método | Ruta | Body / query | Respuesta |
-|---|---|---|---|
-| GET | `/users` | — | `Usuario[]` |
-| GET | `/services` | — | `Servicio[]` |
-| GET | `/clients` | `?q=` | `Cliente[]` |
-| POST | `/clients` | `{ nombre, telefono, email?, notas? }` | `Cliente` |
-| GET | `/equipment` | `?q=&clientId=` | `Equipo[]` |
-| POST | `/equipment` | `{ clienteId, tipo, marca, modelo, numeroSerie, notas? }` | `Equipo` |
-| GET | `/equipment/:id/orders` | — | `OrdenResumen[]` |
-| GET | `/orders` | `?q=&status=&priority=&ownerId=` | `OrdenResumen[]` |
-| GET | `/orders/:id` | — | `OrdenResumen` |
-| POST | `/orders` | `CreateOrderInput` | `OrdenResumen` |
-| PATCH | `/orders/:id` | `UpdateOrderInput & { comentario? }` | `OrdenResumen` |
-| POST | `/orders/:id/transitions` | `{ to, comentario }` | `OrdenResumen` |
-| POST | `/orders/:id/block` | `{ motivo }` | `OrdenResumen` |
-| POST | `/orders/:id/unblock` | `{ comentario }` | `OrdenResumen` |
-| POST | `/orders/:id/escalate` | `{ motivo }` | `OrdenResumen` |
-| POST | `/orders/:id/reopen` | `{ to, motivo }` | `OrdenResumen` |
-| POST | `/orders/:id/validate` | `{ comentario }` | `OrdenResumen` |
-| POST | `/orders/:id/evidence` | multipart, campo `file` | `OrdenResumen` |
-| DELETE | `/orders/:id/evidence/:evidenceId` | — | `OrdenResumen` |
-| GET | `/dashboard` | — | `DashboardData` |
-| GET | `/alerts` | — | `AlertsData` |
-| PATCH | `/critical-reports/:id/read` | — | `204` |
+### Formato de errores
 
-Los tipos `CreateOrderInput`, `UpdateOrderInput`, `DashboardData` y `AlertsData` están en `src/lib/api/apiClient.ts`. El backend debe calcular `prioridad` (nunca confiar en la del cliente) y filtrar por usuario: un Técnico solo recibe sus órdenes.
-
-### 4. Formato de errores
-
-`HttpApiClient` convierte la respuesta de error de NestJS en `ApiError` y muestra `details` como lista en el toast:
+`HttpApiClient` convierte las respuestas de error en `ApiError` y muestra `details` como lista en el toast:
 
 | HTTP | Código en el front | Cuándo |
 |---|---|---|
-| 400 | `VALIDATION` | DTO inválido (`message: string[]` de ValidationPipe) |
-| 401 | `UNAUTHORIZED` | Sin sesión |
+| 400 | `VALIDATION` | Datos inválidos (`message: string[]`) |
+| 401 | `UNAUTHORIZED` | Sin sesión o sesión vencida |
 | 403 | `FORBIDDEN` | Rol sin permiso |
 | 404 | `NOT_FOUND` | No existe |
 | 409 | `CONFLICT` | Teléfono o número de serie repetido |
 | 422 | `WORKFLOW_RULE` | Regla del workflow no cumplida |
 
-Para reglas del workflow, devolvé la lista de faltantes en `details`:
+### Si en el futuro se retira el modo demo
 
-```ts
-throw new UnprocessableEntityException({
-  message: 'No se puede mover a «Listo para retirar»',
-  details: ['Falta documentar la solución'],
-});
-```
-
-### 5. Autenticación real
-
-Hoy la sesión es simulada (`src/lib/auth/mockCurrentUser.ts`). Para reemplazarla:
-
-1. Backend: `POST /auth/login` (passport-local + argon2) que setea una cookie HTTP-only con el JWT, `GET /auth/me` y `POST /auth/logout`.
-2. `mockCurrentUser.ts`: `getMockCurrentUser()` debe devolver el usuario de `/auth/me` (cargado al iniciar) en lugar de leer localStorage. Mantener la misma API (`subscribeCurrentUser`, `signOut`) para que `useCurrentUser` no cambie.
-3. `LoginPage.tsx`: enviar email y contraseña a `/auth/login` y quitar el selector de rol de prueba.
-4. Quitar `RoleSwitcher` de la barra superior.
-5. Los permisos de `permissions.ts` siguen sirviendo para mostrar u ocultar botones, pero **el backend debe aplicarlos** con guards por rol.
-
-### 6. Otras tareas del backend
-
-- **Informes críticos**: un job con `@nestjs/schedule` (ej. cada 15 min) que detecte órdenes críticas abiertas más de 24 h y genere `InformeCritico`.
-- **Evidencia**: guardar el archivo (multer) y devolver la `Evidencia` con sus metadatos. El frontend ya envía el archivo como `FormData`.
-- **Numeración**: `OS-AAAA-0001` correlativa, generada en el backend dentro de una transacción.
-- **Historial**: cada acción agrega un registro `Historial` con usuario, fecha, estados y comentario.
-- **Reloj simulado y reinicio**: son solo de la demo. `resetDemo()` en `HttpApiClient` siempre falla y el panel no se muestra.
-
-### 7. Qué se puede borrar al terminar la migración
-
-`src/mocks/db.ts`, la clase `MockApiClient`, `src/lib/clock.ts` (reemplazar `now()` por `Date.now()`), `DemoPanel.tsx` y la suscripción a `subscribeDb` en `queryClient.ts`. Las invalidaciones de TanStack Query después de cada mutación ya están en los hooks.
+Se pueden borrar `src/mocks/db.ts`, la clase `MockApiClient`, `src/lib/clock.ts` (reemplazar `now()` por `Date.now()`), `DemoPanel.tsx`, `RoleSwitcher.tsx`, el login de demo en `LoginPage.tsx` y la suscripción a `subscribeDb` en `queryClient.ts`.
 
 ---
 
@@ -310,6 +261,6 @@ Hoy la sesión es simulada (`src/lib/auth/mockCurrentUser.ts`). Para reemplazarl
 
 ## Limitaciones conocidas
 
-- Sin autenticación real ni backend: los datos viven solo en el navegador actual.
-- La evidencia en modo demo registra nombre y tamaño; el archivo no se guarda.
+- En modo demo no hay autenticación real y los datos viven solo en el navegador actual.
+- La evidencia en modo demo registra nombre y tamaño; el archivo no se guarda (en modo backend sí).
 - El reloj simulado afecta solo los cálculos de tiempo de la demo (horas abiertas, atrasos, críticas > 24 h).

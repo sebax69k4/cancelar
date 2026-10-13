@@ -35,9 +35,13 @@ export function ChangeStatusModal({ order, initialTo, onClose, onDone }: ChangeS
     resolver: zodResolver(transitionSchema),
   });
 
+  // Reiniciar el formulario solo al abrir (o si la orden cambia de estado). No depende del objeto
+  // `order`: un refresco en segundo plano trae un objeto nuevo y borraría el comentario a medio escribir.
+  const openKey = order ? `${order.id}:${order.estado}` : null;
   useEffect(() => {
-    if (order && defaultTo) reset({ to: defaultTo, comentario: '' });
-  }, [order, defaultTo, reset]);
+    if (openKey && defaultTo) reset({ to: defaultTo, comentario: '' });
+    // defaultTo no va en las dependencias: se deriva de openKey (estado) e initialTo
+  }, [openKey, initialTo, reset]);
 
   const to = watch('to');
   const rule = order && user && to ? canTransition(order, to, user) : null;

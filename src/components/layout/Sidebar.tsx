@@ -82,7 +82,11 @@ export function Sidebar({ currentPath, counts, mobileOpen, onMobileClose }: Side
       if (e.key === 'Escape') onMobileClose();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      // Al cerrar, el foco vuelve al botón que abrió el menú (si no, queda perdido en <body>)
+      document.querySelector<HTMLElement>('button[aria-label="Abrir menú"]')?.focus();
+    };
   }, [mobileOpen, onMobileClose]);
 
   return (

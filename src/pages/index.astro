@@ -3,12 +3,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 ---
 
 <BaseLayout title="Inicio">
+  <!-- Siempre al dashboard: si no hay sesión (demo o backend), la app redirige sola al login -->
   <script is:inline>
-    try {
-      location.replace(localStorage.getItem('st.session') ? '/dashboard' : '/login');
-    } catch (e) {
-      location.replace('/login');
-    }
+    location.replace('/dashboard');
   </script>
-  <noscript><a href="/login">Ir al inicio de sesión</a></noscript>
+  <noscript><a href="/dashboard">Ir al sistema</a></noscript>
 </BaseLayout>

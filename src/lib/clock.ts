@@ -2,12 +2,15 @@
  * Reloj de la demo. Permite simular el paso del tiempo (ej. +24 h) para probar
  * alertas de órdenes críticas sin esperar. Con backend real, `now()` = Date.now().
  */
+import { isMockApi } from './api/config';
 import { STORAGE_KEYS, readStorage, writeStorage } from './storage';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
 
 export function getClockOffsetHours(): number {
+  // Con backend real las horas las calcula el servidor: un desfase guardado de la demo no aplica
+  if (!isMockApi) return 0;
   const n = Number(readStorage(STORAGE_KEYS.clock) ?? '0');
   return Number.isFinite(n) && n > 0 ? n : 0;
 }

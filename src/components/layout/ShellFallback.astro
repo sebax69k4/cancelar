@@ -1,18 +1,7 @@
 ---
-/* Esqueleto que se ve mientras carga la isla React (client:only). */
+/* Esqueleto que se ve mientras carga la isla React (client:only).
+   Es el mismo componente que usa AppShell al esperar la sesión, renderizado como HTML estático. */
+import { ShellSkeleton } from './ShellSkeleton';
 ---
 
-<div class="flex min-h-dvh" aria-hidden="true">
-  <div class="hidden w-60 shrink-0 border-r border-border bg-surface lg:block"></div>
-  <div class="flex-1">
-    <div class="h-16 border-b border-border bg-surface"></div>
-    <div class="space-y-4 p-6">
-      <div class="h-7 w-48 animate-pulse rounded-md bg-surface-3"></div>
-      <div class="grid gap-4 sm:grid-cols-3">
-        <div class="h-24 animate-pulse rounded-lg bg-surface-3"></div>
-        <div class="h-24 animate-pulse rounded-lg bg-surface-3"></div>
-        <div class="h-24 animate-pulse rounded-lg bg-surface-3"></div>
-      </div>
-    </div>
-  </div>
-</div>
+<ShellSkeleton label="Cargando la aplicación…" />

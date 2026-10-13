@@ -1,5 +1,6 @@
 import { FlaskConical } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { isMockApi } from '@/lib/api/config';
 import { signInAs } from '@/lib/auth/mockCurrentUser';
 import { ROL_LABEL } from '@/lib/domain/labels';
 import { toast } from '@/lib/toast';
@@ -8,7 +9,8 @@ import { MOCK_USERS } from '@/mocks/users';
 /** Selector temporal para probar permisos con cada rol mock. */
 export function RoleSwitcher() {
   const user = useCurrentUser();
-  if (!user) return null;
+  // Con backend real el rol sale de la sesión: no hay selector de prueba
+  if (!user || !isMockApi) return null;
 
   return (
     <div className="relative flex items-center">

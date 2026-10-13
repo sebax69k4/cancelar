@@ -202,7 +202,7 @@ function Content({ clienteId, setClienteId, onNew }: { clienteId: string; setCli
                             Historial<span className="sr-only"> de {e.marca} {e.modelo}</span>
                           </Button>
                           {canCreateOrder && (
-                            <LinkButton href={`/ordenes/nueva?cliente=${e.clienteId}`} variant="outline" size="sm" leftIcon={<ClipboardPlus className="size-3.5" aria-hidden="true" />}>
+                            <LinkButton href={`/ordenes/nueva?cliente=${e.clienteId}&equipo=${e.id}`} variant="outline" size="sm" leftIcon={<ClipboardPlus className="size-3.5" aria-hidden="true" />}>
                               Nueva orden
                             </LinkButton>
                           )}

@@ -7,6 +7,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { signOut } from '@/lib/auth/mockCurrentUser';
 import { ROL_LABEL } from '@/lib/domain/labels';
 import { initials } from '@/lib/format';
+import { navigate } from '@/lib/router';
 import { RoleSwitcher } from './RoleSwitcher';
 
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
@@ -31,7 +32,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   function onSearch(e: { preventDefault: () => void }) {
     e.preventDefault();
     const term = q.trim();
-    window.location.href = term ? `/ordenes?q=${encodeURIComponent(term)}` : '/ordenes';
+    navigate(term ? `/ordenes?q=${encodeURIComponent(term)}` : '/ordenes');
   }
 
   return (
@@ -93,8 +94,9 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
               aria-label="Cerrar sesión"
               title="Cerrar sesión"
               onClick={() => {
-                signOut();
-                window.location.href = '/login';
+                void signOut().then(() => {
+                  window.location.href = '/login';
+                });
               }}
             >
               <LogOut aria-hidden="true" />

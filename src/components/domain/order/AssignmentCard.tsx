@@ -107,7 +107,9 @@ export function AssignmentCard({ order, canAssign, canReprioritize, busy, onSave
                 <Select
                   id="as-tec"
                   label="Técnico"
-                  placeholder="Sin asignar"
+                  // En curso no se puede dejar sin técnico (la orden quedaría huérfana)
+                  placeholder={order.estado === 'RECIBIDO' || !order.tecnicoId ? 'Sin asignar' : undefined}
+                  hint={order.estado !== 'RECIBIDO' ? 'En curso: se puede cambiar de técnico, no quitarlo.' : undefined}
                   value={tecnicoId}
                   onChange={(e) => setTecnicoId(e.target.value)}
                   options={(users.data ?? []).filter((u) => u.rol === 'TECNICO').map((u) => ({ value: u.id, label: u.nombre }))}

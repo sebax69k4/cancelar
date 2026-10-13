@@ -1,16 +1,15 @@
 ---
+// Todas las pantallas internas usan la misma isla: la navegación entre ellas no recarga la página.
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ShellFallback from '@/components/layout/ShellFallback.astro';
-import OrderDetailPage from '@/components/islands/OrderDetailPage';
-
-// id dinámico: en la demo la orden vive en localStorage, así que no se puede prerenderizar
+import App from '@/components/islands/App';
+// id dinámico: la orden se resuelve en el cliente (backend o localStorage), no se puede prerenderizar
 export const prerender = false;
 
-const id = Astro.params.id ?? '';
 ---
 
 <BaseLayout title="Orden de servicio">
-  <OrderDetailPage client:only="react" id={id}>
+  <App client:only="react">
     <ShellFallback slot="fallback" />
-  </OrderDetailPage>
+  </App>
 </BaseLayout>

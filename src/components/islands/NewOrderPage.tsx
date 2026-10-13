@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -27,7 +27,8 @@ import { now } from '@/lib/clock';
 import { cn } from '@/lib/cn';
 import { IMPACTO_LABEL, ROL_LABEL, TIPO_EQUIPO_LABEL, URGENCIA_LABEL } from '@/lib/domain/labels';
 import { formatMoney } from '@/lib/format';
-import { flashToast, toast } from '@/lib/toast';
+import { navigate } from '@/lib/router';
+import { toast } from '@/lib/toast';
 import { calculatePriority } from '@/lib/workflow/priority';
 import { MIN_MOTIVO } from '@/lib/workflow/transitions';
 import { localDate, orderSchema, type OrderInput } from '@/schemas/order.schema';
@@ -95,6 +96,17 @@ function NewOrderForm() {
     if (c) pickClient(c);
   }, [allClients.data]);
 
+  // ?equipo=<id> preselecciona además el equipo (desde la tabla de equipos), una sola vez
+  const equipoFromUrl = useRef(new URLSearchParams(window.location.search).get('equipo'));
+  useEffect(() => {
+    const id = equipoFromUrl.current;
+    if (!id || !cliente || equipment.isPlaceholderData || !equipment.data) return;
+    if (equipment.data.some((e) => e.id === id && e.clienteId === cliente.id)) {
+      setValue('equipoId', id, { shouldValidate: isSubmitted });
+    }
+    equipoFromUrl.current = null;
+  }, [cliente, equipment.data, equipment.isPlaceholderData]);
+
   function pickClient(c: Cliente | null) {
     setCliente(c);
     setNewClientName(null);
@@ -128,12 +140,13 @@ function NewOrderForm() {
         fallaReportada: data.fallaReportada,
         impacto: data.impacto,
         urgencia: data.urgencia,
-        fechaEstimada: new Date(`${data.fechaEstimada}T18:00:00`).toISOString(),
+        // Fin del día elegido: una orden con entrega «hoy» no figura atrasada hasta que termine el día
+        fechaEstimada: new Date(`${data.fechaEstimada}T23:59:59`).toISOString(),
       },
       {
         onSuccess: (o) => {
-          flashToast('success', `Orden ${o.numero} creada`, 'Quedó en «Recibido».');
-          window.location.href = `/ordenes/${o.id}`;
+          toast.success(`Orden ${o.numero} creada`, { description: 'Quedó en «Recibido».' });
+          navigate(`/ordenes/${o.id}`);
         },
         onError: (e) => toast.error(errorMessage(e), { details: isApiError(e) ? e.details : undefined }),
       },
@@ -141,7 +154,10 @@ function NewOrderForm() {
   }
 
   const tecnicos = (users.data ?? []).filter((u) => u.rol === 'TECNICO');
-  const clientEquipment = equipment.data ?? [];
+  // Al cambiar de cliente, la consulta muestra un instante los equipos del anterior (placeholder):
+  // filtrar por dueño evita elegir un equipo de otro cliente
+  const clientEquipment = (equipment.data ?? []).filter((e) => e.clienteId === cliente?.id);
+  const loadingEquipment = equipment.isPending || equipment.isPlaceholderData;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -189,7 +205,7 @@ function NewOrderForm() {
           ) : (
             <fieldset className="flex flex-col gap-3">
               <legend className="sr-only">Equipo del cliente</legend>
-              {equipment.isPending ? (
+              {loadingEquipment ? (
                 <Skeleton className="h-16" />
               ) : clientEquipment.length === 0 ? (
                 <p className="text-sm text-muted">Este cliente no tiene equipos registrados.</p>

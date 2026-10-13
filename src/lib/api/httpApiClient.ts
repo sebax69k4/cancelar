@@ -9,6 +9,7 @@ import type {
   AlertsData, ApiClient, CreateClientInput, CreateEquipmentInput, CreateOrderInput, DashboardData,
   EvidenceInput, OrderFilters, UpdateOrderInput,
 } from './apiClient';
+import { handleUnauthorized } from '@/lib/auth/mockCurrentUser';
 import { ApiError, type ApiErrorCode } from './errors';
 import type { Cliente, Equipo, EstadoOrden, OrdenResumen, Servicio, Usuario } from '@/types/domain';
 
@@ -71,6 +72,7 @@ export class HttpApiClient implements ApiClient {
 
     if (res.status === 204) return undefined as T;
     const data: unknown = await res.json().catch(() => null);
+    if (res.status === 401) handleUnauthorized(); // sesión vencida → AppShell redirige al login
     if (!res.ok) throw toApiError(res.status, data);
     // Confiamos en el contrato del backend. Para mayor robustez, validar con zod acá.
     return data as T;
@@ -155,6 +157,10 @@ export class HttpApiClient implements ApiClient {
 
   removeEvidence(id: string, evidenciaId: string) {
     return this.request<OrdenResumen>('DELETE', `/orders/${encodeURIComponent(id)}/evidence/${encodeURIComponent(evidenciaId)}`);
+  }
+
+  evidenceFileUrl(id: string, evidenciaId: string): string {
+    return `${this.baseUrl}/orders/${encodeURIComponent(id)}/evidence/${encodeURIComponent(evidenciaId)}/file`;
   }
 
   getDashboard() {

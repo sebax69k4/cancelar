@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { NoAccess } from '@/components/auth/PermissionGuard';
-import { LoadingState } from '@/components/ui/States';
+import { ErrorState } from '@/components/ui/States';
 import { Toaster } from '@/components/ui/Toast';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useCurrentUser, useSessionStatus } from '@/hooks/useCurrentUser';
+import { loadSession, retrySession } from '@/lib/auth/mockCurrentUser';
 import { useDashboard } from '@/hooks/useDashboard';
 import { queryClient } from '@/lib/api/queryClient';
 import { can, type Permission } from '@/lib/auth/permissions';
 import { StatusBar, WindowTitleBar } from './ClassicChrome';
 import { RoleSwitcher } from './RoleSwitcher';
+import { ShellSkeleton } from './ShellSkeleton';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
@@ -34,18 +36,36 @@ export function AppShell(props: AppShellProps) {
 
 function ShellInner({ currentPath, permission, title, description, actions, customHeader, children }: AppShellProps) {
   const user = useCurrentUser();
+  const session = useSessionStatus();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const dashboard = useDashboard({ enabled: user !== null && can(user.rol, 'nav.alertas') });
 
+  // Modo backend: recupera la sesión (cookie) desde /auth/me
   useEffect(() => {
-    if (!user) {
+    void loadSession();
+  }, []);
+
+  useEffect(() => {
+    if (session === 'ready' && !user) {
       const next = encodeURIComponent(window.location.pathname + window.location.search);
       window.location.replace(`/login?next=${next}`);
     }
-  }, [user]);
+  }, [session, user]);
 
-  if (!user) return <LoadingState label="Redirigiendo al inicio de sesión…" className="h-dvh" />;
+  if (session === 'loading') return <ShellSkeleton label="Verificando sesión…" />;
+  if (session === 'error') {
+    return (
+      <div className="flex h-dvh items-center justify-center p-4">
+        <ErrorState
+          title="No se pudo conectar con el servidor"
+          message="Verificá que el backend esté encendido (npm run start:dev en la carpeta backend) y volvé a intentar."
+          onRetry={() => void retrySession()}
+        />
+      </div>
+    );
+  }
+  if (!user) return <ShellSkeleton label="Redirigiendo al inicio de sesión…" />;
 
   const allowed = !permission || can(user.rol, permission);
   const counts = { '/alertas': dashboard.data?.alertasPendientes ?? 0 };
@@ -55,6 +75,7 @@ function ShellInner({ currentPath, permission, title, description, actions, cust
     <div className="flex min-h-dvh flex-col classic:h-dvh classic:overflow-hidden">
       <a
         href="#contenido"
+        inert={menuOpen}
         className="sr-only z-50 rounded-md bg-primary px-4 py-2 font-semibold text-primary-fg focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
       >
         Saltar al contenido
@@ -62,7 +83,8 @@ function ShellInner({ currentPath, permission, title, description, actions, cust
       <WindowTitleBar title={title} />
       <div className="flex min-h-0 flex-1">
         <Sidebar currentPath={currentPath} counts={counts} mobileOpen={menuOpen} onMobileClose={closeMenu} />
-        <div className="flex min-w-0 flex-1 flex-col classic:overflow-y-auto">
+        {/* Con el menú móvil abierto el resto queda inerte: el foco no puede escaparse del menú */}
+        <div data-scroll-root inert={menuOpen} className="flex min-w-0 flex-1 flex-col classic:overflow-y-auto">
           <Topbar onOpenMenu={() => setMenuOpen(true)} />
           <main id="contenido" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 focus:outline-none md:px-6 classic:py-4">
             <div className="mb-4 sm:hidden">

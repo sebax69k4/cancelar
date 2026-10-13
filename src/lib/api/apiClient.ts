@@ -24,6 +24,7 @@ import type {
   OrdenResumen, Prioridad, Servicio, TipoAccion, TipoEquipo, Urgencia, Usuario,
 } from '@/types/domain';
 import { ApiError } from './errors';
+import { API_URL, isMockApi } from './config';
 import { HttpApiClient } from './httpApiClient';
 
 // ------------------------------------------------------------------ contratos (DTO)
@@ -132,6 +133,8 @@ export interface ApiClient {
   validateOrder(id: string, comentario: string): Promise<OrdenResumen>;
   addEvidence(id: string, file: EvidenceInput): Promise<OrdenResumen>;
   removeEvidence(id: string, evidenciaId: string): Promise<OrdenResumen>;
+  /** URL para ver/descargar el archivo; null en la demo (el archivo no se guarda). */
+  evidenceFileUrl(id: string, evidenciaId: string): string | null;
 
   getDashboard(): Promise<DashboardData>;
   getAlerts(): Promise<AlertsData>;
@@ -471,6 +474,11 @@ class MockApiClient implements ApiClient {
         if (reassigning && !can(user.rol, 'order.assign')) throw new ApiError('FORBIDDEN', 'Tu rol no puede reasignar órdenes');
         if (input.tecnicoId !== undefined) {
           if (input.tecnicoId && userById(input.tecnicoId)?.rol !== 'TECNICO') throw new ApiError('VALIDATION', 'Técnico inválido');
+          if (!input.tecnicoId && o.estado !== 'RECIBIDO') {
+            throw new ApiError('WORKFLOW_RULE', 'No se puede quitar el técnico', [
+              'La orden ya está en curso: asigná otro técnico en lugar de dejarla sin asignar',
+            ]);
+          }
           o.tecnicoId = input.tecnicoId;
           cambios.push('técnico');
         }
@@ -620,6 +628,10 @@ class MockApiClient implements ApiClient {
     });
   }
 
+  evidenceFileUrl(): string | null {
+    return null;
+  }
+
   /** GET /dashboard */
   getDashboard() {
     return simulate((): DashboardData => {
@@ -725,12 +737,7 @@ class MockApiClient implements ApiClient {
   }
 }
 
-/**
- * Selección del cliente: sin PUBLIC_API_URL → demo con localStorage;
- * con PUBLIC_API_URL (ej. http://localhost:3000/api) → backend NestJS real.
- */
-const API_URL = import.meta.env.PUBLIC_API_URL;
-
-export const isMockApi = !API_URL;
+/** Selección del cliente según PUBLIC_API_URL (ver lib/api/config.ts). */
+export { isMockApi };
 
 export const apiClient: ApiClient = API_URL ? new HttpApiClient(API_URL) : new MockApiClient();
