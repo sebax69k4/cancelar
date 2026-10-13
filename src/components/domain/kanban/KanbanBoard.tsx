@@ -102,8 +102,10 @@ function KanbanColumn({ estado, orders, dropState, onMove }: ColumnProps) {
     <section
       ref={setNodeRef}
       aria-labelledby={headingId}
+      data-drop={dropState}
+      data-over={isOver || undefined}
       className={cn(
-        'relative flex w-[272px] shrink-0 snap-start flex-col rounded-lg border bg-surface-2/70 transition-colors 2xl:w-auto 2xl:min-w-[248px] 2xl:flex-1',
+        'ui-inset relative flex w-[272px] shrink-0 snap-start flex-col rounded-lg border bg-surface-2/70 transition-colors 2xl:w-auto 2xl:min-w-[248px] 2xl:flex-1',
         dropState === 'idle' || dropState === 'source' ? 'border-transparent' : '',
         dropState === 'allowed' && 'border-dashed border-primary',
         dropState === 'allowed' && isOver && 'border-solid bg-primary-soft',

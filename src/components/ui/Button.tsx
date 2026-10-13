@@ -63,6 +63,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       className={cn(
         'inline-flex shrink-0 items-center justify-center rounded-md font-semibold whitespace-nowrap transition-colors',
         'disabled:cursor-not-allowed disabled:opacity-50',
+        `ui-btn ui-btn-${variant}`,
         variants[variant],
         iconOnly ? iconOnlySizes[size] : sizes[size],
         className,
@@ -79,6 +80,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 export function buttonClassName(variant: ButtonVariant = 'primary', size: ButtonSize = 'md', className?: string): string {
   return cn(
     'inline-flex shrink-0 items-center justify-center rounded-md font-semibold whitespace-nowrap transition-colors',
+    `ui-btn ui-btn-${variant}`,
     variants[variant],
     sizes[size],
     className,

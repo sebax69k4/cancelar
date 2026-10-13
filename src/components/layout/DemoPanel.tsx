@@ -24,7 +24,7 @@ export function DemoPanel() {
   return (
     <section
       aria-label="Controles de la demo"
-      className="flex flex-col gap-2 rounded-md border border-dashed border-border-strong px-3 py-2.5 text-[11px] leading-snug text-muted"
+      className="ui-field flex flex-col gap-2 rounded-md border border-dashed border-border-strong px-3 py-2.5 text-[11px] leading-snug text-muted"
     >
       <p>
         <strong className="font-semibold text-fg">Versión demo.</strong> Los datos se guardan solo en este navegador.

@@ -41,7 +41,7 @@ export function SegmentedControl<T extends string>({
       </legend>
       <div
         className={cn(
-          'grid gap-1 rounded-md border bg-surface-2 p-1',
+          'ui-inset grid gap-1 rounded-md border bg-surface-2 p-1',
           error ? 'border-danger' : 'border-border',
         )}
         style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
@@ -54,7 +54,7 @@ export function SegmentedControl<T extends string>({
               className={cn(
                 'flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-sm text-sm font-medium transition-colors',
                 'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-focus [&_svg]:size-4',
-                checked ? 'bg-surface text-fg shadow-card ring-1 ring-border-strong' : 'text-muted hover:text-fg',
+                checked ? 'ui-seg-on bg-surface text-fg shadow-card ring-1 ring-border-strong' : 'text-muted hover:text-fg',
               )}
             >
               <input

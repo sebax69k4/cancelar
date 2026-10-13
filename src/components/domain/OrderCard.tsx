@@ -24,7 +24,7 @@ export function OrderCard({ order, onMove, dragHandle, dragging, overlay, classN
     <article
       aria-label={`Orden ${order.numero}`}
       className={cn(
-        'group relative flex flex-col gap-2 rounded-lg border border-l-4 border-border bg-surface p-3 shadow-card transition-shadow',
+        'ui-panel ui-accent group relative flex flex-col gap-2 rounded-lg border border-l-4 border-border bg-surface p-3 shadow-card transition-shadow',
         PRIORIDAD_META[order.prioridad].border,
         order.criticaVencida && 'ring-1 ring-red-300 dark:ring-red-500/40',
         order.bloqueada && 'bg-[repeating-linear-gradient(135deg,transparent,transparent_8px,rgb(225_29_72/0.05)_8px,rgb(225_29_72/0.05)_16px)]',

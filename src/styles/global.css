@@ -76,6 +76,13 @@
   --color-info: var(--info);
   --color-overlay: var(--overlay);
 
+  --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
+  --animate-toast-in: toast-in 180ms ease-out;
+  --animate-modal-in: modal-in 160ms ease-out;
+}
+
+/* Sin `inline`: las utilidades usan var(--…), así el estilo clásico puede redefinirlos. */
+@theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
 
@@ -85,11 +92,10 @@
 
   --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 1px 3px rgb(15 23 42 / 0.04);
   --shadow-pop: 0 10px 30px -8px rgb(15 23 42 / 0.25), 0 4px 10px -4px rgb(15 23 42 / 0.12);
-
-  --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
-  --animate-toast-in: toast-in 180ms ease-out;
-  --animate-modal-in: modal-in 160ms ease-out;
 }
+
+/* Variante para clases que solo aplican al estilo clásico: `classic:flex` */
+@custom-variant classic (&:where(.skin-classic, .skin-classic *));
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -130,4 +136,319 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ==================================================================
+   ESTILO CLÁSICO (Windows 2000)  ·  html.skin-classic
+   Modo oscuro del estilo clásico = Terminal CRT (html.skin-classic.dark)
+   Los componentes exponen clases semánticas `ui-*` que este bloque
+   reestiliza (bisel en relieve/hundido, barras de título, etc.).
+   Va fuera de @layer a propósito: así prevalece sobre las utilidades.
+   ================================================================== */
+
+html.skin-classic {
+  --bg: #ece9d8;
+  --surface: #d4d0c8;
+  --surface-2: #e4e0d7;
+  --surface-3: #c4c0b6;
+  --border: #aca899;
+  --border-strong: #808080;
+  --text: #000000;
+  --text-muted: #3f3f3f;
+  --text-subtle: #555555;
+  --primary: #0a246a;
+  --primary-hover: #1c3d8f;
+  --primary-fg: #ffffff;
+  --primary-soft: #c7d3ee;
+  --focus: #000000;
+  --overlay: rgb(0 0 0 / 0.35);
+
+  /* propios del estilo clásico */
+  --field: #ffffff;
+  --bevel-hi: #ffffff;
+  --bevel-hi2: #f0eee7;
+  --bevel-mid: #808080;
+  --bevel-dk: #404040;
+  --btn-top: #fbfbf9;
+  --btn-bottom: #dfdad1;
+  --btn-primary-top: #f3f7ff;
+  --btn-primary-bottom: #d3e0fb;
+  --btn-primary-fg: #002f6c;
+  --title-a: #0a246a;
+  --title-b: #3a6ea5;
+  --title-fg: #ffffff;
+  --panel-head: #ece9d8;
+  --grid-head: #dfdbd1;
+  --row-hover: #dde6f7;
+
+  --font-sans: Tahoma, "Segoe UI", "MS Sans Serif", Verdana, sans-serif;
+  --font-mono: "Lucida Console", "Courier New", monospace;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --shadow-card: none;
+  --shadow-pop: 2px 2px 0 rgb(0 0 0 / 0.45);
+  -webkit-font-smoothing: auto;
+}
+
+/* Terminal CRT (verde fósforo) */
+html.skin-classic.dark {
+  --bg: #0a130c;
+  --surface: #101912;
+  --surface-2: #142318;
+  --surface-3: #1b3322;
+  --border: #174e2a;
+  --border-strong: #2a7a45;
+  --text: #4aff88;
+  --text-muted: #3ccf70;
+  --text-subtle: #2fae5c;
+  --primary: #8effaa;
+  --primary-hover: #b8ffca;
+  --primary-fg: #0a130c;
+  --primary-soft: rgb(74 255 136 / 0.14);
+  --focus: #8effaa;
+  --overlay: rgb(0 0 0 / 0.7);
+
+  --field: #050b06;
+  --bevel-hi: #2f8f52;
+  --bevel-hi2: #1b5e33;
+  --bevel-mid: #0d4b24;
+  --bevel-dk: #021006;
+  --btn-top: #17301f;
+  --btn-bottom: #102417;
+  --btn-primary-top: #1d4a2a;
+  --btn-primary-bottom: #12351e;
+  --btn-primary-fg: #b8ffca;
+  --title-a: #083c18;
+  --title-b: #14692d;
+  --title-fg: #b8ffca;
+  --panel-head: #0d2816;
+  --grid-head: #0d2816;
+  --row-hover: #12351e;
+
+  --font-sans: "Lucida Console", "Courier New", Courier, monospace;
+  --font-mono: "Lucida Console", "Courier New", Courier, monospace;
+}
+
+html.skin-classic.dark body {
+  text-shadow: 0 0 2px rgb(74 255 136 / 0.35);
+}
+/* Líneas de barrido CRT, muy sutiles y sin animación */
+html.skin-classic.dark body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background: repeating-linear-gradient(0deg, rgb(0 0 0 / 0.12) 0 1px, transparent 1px 3px);
+}
+
+.skin-classic :focus-visible {
+  outline: 2px dotted var(--text);
+  outline-offset: 1px;
+}
+
+/* --- Bisel en relieve: paneles, tarjetas, ventanas ----------------- */
+.skin-classic .ui-panel,
+.skin-classic .ui-window {
+  background-color: var(--surface);
+  border-style: solid;
+  border-width: 2px;
+  border-color: var(--bevel-hi) var(--bevel-dk) var(--bevel-dk) var(--bevel-hi);
+  box-shadow: inset -1px -1px 0 var(--bevel-mid), inset 1px 1px 0 var(--bevel-hi2);
+}
+/* Tarjetas con acento de prioridad: conservan el borde izquierdo de color */
+.skin-classic .ui-panel.ui-accent {
+  border-left-width: 5px;
+  border-left-color: revert-layer;
+}
+.skin-classic .ui-window {
+  box-shadow: inset -1px -1px 0 var(--bevel-mid), inset 1px 1px 0 var(--bevel-hi2), var(--shadow-pop);
+}
+
+/* --- Bisel hundido: campos, grillas, zonas de contenido ------------ */
+.skin-classic .ui-inset,
+.skin-classic .ui-field,
+.skin-classic .ui-grid {
+  border-style: solid;
+  border-width: 2px;
+  border-color: var(--bevel-mid) var(--bevel-hi) var(--bevel-hi) var(--bevel-mid);
+  box-shadow: inset 1px 1px 0 var(--bevel-dk);
+}
+.skin-classic .ui-field,
+.skin-classic .ui-grid {
+  background-color: var(--field);
+}
+.skin-classic .ui-field[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+/* --- Botones ------------------------------------------------------- */
+.skin-classic .ui-btn {
+  background: linear-gradient(180deg, var(--btn-top) 0%, var(--btn-bottom) 100%);
+  color: var(--text);
+  border-style: solid;
+  border-width: 2px;
+  border-color: var(--bevel-hi) var(--bevel-dk) var(--bevel-dk) var(--bevel-hi);
+  box-shadow: inset -1px -1px 0 var(--bevel-mid), inset 1px 1px 0 var(--bevel-hi);
+  text-shadow: none;
+}
+.skin-classic .ui-btn:hover:not(:disabled) {
+  filter: brightness(1.03);
+}
+.skin-classic .ui-btn:active:not(:disabled) {
+  border-color: var(--bevel-dk) var(--bevel-hi) var(--bevel-hi) var(--bevel-dk);
+  box-shadow: inset 1px 1px 0 var(--bevel-mid);
+  padding-top: 1px;
+  padding-left: 1px;
+}
+.skin-classic .ui-btn-primary {
+  background: linear-gradient(180deg, var(--btn-primary-top) 0%, var(--btn-primary-bottom) 100%);
+  color: var(--btn-primary-fg);
+  font-weight: 700;
+}
+.skin-classic .ui-btn-danger {
+  color: #8b0000;
+  font-weight: 700;
+}
+.skin-classic.dark .ui-btn-danger {
+  color: #ff8a8a;
+}
+.skin-classic .ui-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.skin-classic .ui-btn-ghost:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--btn-top) 0%, var(--btn-bottom) 100%);
+  border-color: var(--bevel-hi) var(--bevel-dk) var(--bevel-dk) var(--bevel-hi);
+}
+
+/* --- Barras de título (modales y ventana principal) --------------- */
+.skin-classic .ui-titlebar {
+  background: linear-gradient(90deg, var(--title-a) 0%, var(--title-b) 100%);
+  color: var(--title-fg);
+  border-bottom: 0;
+}
+.skin-classic .ui-titlebar h2,
+.skin-classic .ui-titlebar .text-muted,
+.skin-classic .ui-titlebar svg {
+  color: var(--title-fg);
+}
+.skin-classic .ui-titlebar .ui-btn {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--bevel-hi) var(--bevel-dk) var(--bevel-dk) var(--bevel-hi);
+  box-shadow: inset -1px -1px 0 var(--bevel-mid);
+}
+.skin-classic .ui-titlebar .ui-btn svg {
+  color: var(--text);
+}
+
+/* Encabezado de panel (franja gris con título en negrita) */
+.skin-classic .ui-panel-header {
+  background-color: var(--panel-head);
+  border-bottom: 1px solid var(--border);
+}
+
+/* --- Barra superior y navegación ---------------------------------- */
+.skin-classic .ui-toolbar {
+  background-color: var(--surface-2);
+  backdrop-filter: none;
+  border-bottom: 2px solid var(--bevel-mid);
+  box-shadow: 0 1px 0 var(--bevel-hi);
+}
+.skin-classic .ui-sidebar {
+  background-color: var(--surface);
+  border-right: 2px solid var(--bevel-mid);
+}
+.skin-classic .ui-navitem {
+  background: linear-gradient(180deg, var(--btn-top) 0%, var(--btn-bottom) 100%);
+  color: var(--text);
+  border-style: solid;
+  border-width: 2px;
+  border-color: var(--bevel-hi) var(--bevel-dk) var(--bevel-dk) var(--bevel-hi);
+}
+.skin-classic .ui-navitem[aria-current='page'] {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 700;
+  border-color: var(--bevel-dk) var(--bevel-hi) var(--bevel-hi) var(--bevel-dk);
+  border-left: 4px solid var(--primary);
+}
+
+/* --- Pestañas ------------------------------------------------------ */
+.skin-classic .ui-tab {
+  margin-top: 3px;
+  margin-bottom: 0;
+  background: var(--surface-2);
+  color: var(--text);
+  border-style: solid;
+  border-width: 2px 2px 0 2px;
+  border-color: var(--bevel-hi) var(--bevel-dk) transparent var(--bevel-hi);
+}
+.skin-classic .ui-tab[aria-selected='true'] {
+  margin-top: 0;
+  background: var(--surface);
+  font-weight: 700;
+  position: relative;
+  top: 1px;
+}
+
+/* --- Control segmentado (impacto / urgencia) ---------------------- */
+.skin-classic .ui-seg-on {
+  background: linear-gradient(180deg, var(--btn-top) 0%, var(--btn-bottom) 100%);
+  border: 2px solid;
+  border-color: var(--bevel-hi) var(--bevel-dk) var(--bevel-dk) var(--bevel-hi);
+  box-shadow: none;
+  font-weight: 700;
+}
+
+/* --- Grilla de datos ----------------------------------------------- */
+.skin-classic .ui-grid thead {
+  background-color: var(--grid-head);
+  color: var(--text);
+}
+.skin-classic .ui-grid th {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--bevel-mid);
+}
+.skin-classic .ui-grid tbody tr:hover {
+  background-color: var(--row-hover);
+}
+
+/* --- Kanban: destino válido / no válido mientras se arrastra ------- */
+.skin-classic .ui-inset[data-drop='allowed'] {
+  outline: 2px dashed var(--primary);
+  outline-offset: -5px;
+}
+.skin-classic .ui-inset[data-drop='allowed'][data-over] {
+  outline-style: solid;
+}
+.skin-classic .ui-inset[data-drop='denied'][data-over] {
+  outline: 2px dashed var(--danger);
+  outline-offset: -5px;
+}
+
+/* --- Barra de estado ----------------------------------------------- */
+.skin-classic .ui-status-cell {
+  border-style: solid;
+  border-width: 1px;
+  border-color: var(--bevel-mid) var(--bevel-hi) var(--bevel-hi) var(--bevel-mid);
+  background-color: var(--surface-2);
+}
+
+/* --- Barras de desplazamiento retro -------------------------------- */
+.skin-classic ::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+  background: var(--surface-2);
+}
+.skin-classic ::-webkit-scrollbar-thumb {
+  background: var(--surface);
+  border: 2px solid;
+  border-color: var(--bevel-hi) var(--bevel-dk) var(--bevel-dk) var(--bevel-hi);
+}
+.skin-classic ::-webkit-scrollbar-corner {
+  background: var(--surface);
 }

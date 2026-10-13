@@ -2,7 +2,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
 export function Card({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('rounded-lg border border-border bg-surface shadow-card', className)} {...rest} />;
+  return <div className={cn('ui-panel rounded-lg border border-border bg-surface shadow-card', className)} {...rest} />;
 }
 
 export interface CardHeaderProps {
@@ -16,7 +16,7 @@ export interface CardHeaderProps {
 
 export function CardHeader({ title, description, icon, actions, className, as: Heading = 'h2' }: CardHeaderProps) {
   return (
-    <div className={cn('flex items-start gap-3 border-b border-border px-4 py-3', className)}>
+    <div className={cn('ui-panel-header flex items-start gap-3 border-b border-border px-4 py-3', className)}>
       {icon && <span className="mt-0.5 text-muted [&_svg]:size-5">{icon}</span>}
       <div className="min-w-0 flex-1">
         <Heading className="text-base font-semibold">{title}</Heading>

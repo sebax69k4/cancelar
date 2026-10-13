@@ -156,6 +156,17 @@ src/
 
 La página `/design` muestra el sistema de diseño (paleta, tipografía y componentes).
 
+### Estilos visuales
+
+Hay dos estilos, combinables con el tema claro/oscuro (botones de la barra superior):
+
+| Estilo | Claro | Oscuro |
+|---|---|---|
+| **Clásico** (por defecto) | Windows 2000: biseles, barras de título, barra de estado | Terminal CRT verde fósforo |
+| **Moderno** | Interfaz plana clara | Interfaz plana oscura |
+
+Cómo funciona: `<html>` lleva la clase `skin-classic`, que redefine los tokens de `global.css` (colores, fuentes, radios en 0). Los componentes exponen clases semánticas `ui-*` (`ui-panel`, `ui-btn`, `ui-field`, `ui-titlebar`, `ui-tab`, `ui-grid`…) que el bloque «ESTILO CLÁSICO» de `global.css` convierte en biseles. Para estilos puntuales existe la variante de Tailwind `classic:` (ej. `classic:font-mono`). El estilo elegido se guarda en `st.skin`.
+
 ## Persistencia en modo demo
 
 | Clave de localStorage | Contenido |
@@ -163,6 +174,7 @@ La página `/design` muestra el sistema de diseño (paleta, tipografía y compon
 | `st.db.v1` | Clientes, equipos, órdenes e informes leídos |
 | `st.session` | Id del usuario mock logueado |
 | `st.theme` | `light` / `dark` / `system` |
+| `st.skin` | `classic` (por defecto) / `modern` |
 | `st.clock.offsetHours` | Horas adelantadas del reloj simulado |
 
 Los datos son por navegador: otro navegador u otra PC ven el sistema vacío. Varias pestañas del mismo navegador se sincronizan solas.

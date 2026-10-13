@@ -17,14 +17,18 @@ const { title } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title} · ServicioTécnico</title>
-    <!-- Aplica el tema antes de pintar para evitar parpadeo -->
+    <!-- Aplica estilo (clásico por defecto) y tema antes de pintar para evitar parpadeo -->
     <script is:inline>
       (function () {
+        var root = document.documentElement;
         try {
+          if (localStorage.getItem('st.skin') !== 'modern') root.classList.add('skin-classic');
           var p = localStorage.getItem('st.theme');
           var dark = p === 'dark' || (p !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-          if (dark) document.documentElement.classList.add('dark');
-        } catch (e) {}
+          if (dark) root.classList.add('dark');
+        } catch (e) {
+          root.classList.add('skin-classic');
+        }
       })();
     </script>
   </head>

@@ -161,7 +161,7 @@ function Detail({ id }: { id: string }) {
       {/* Encabezado */}
       <header
         className={cn(
-          'mb-4 flex flex-wrap items-start justify-between gap-4 rounded-lg border border-l-4 bg-surface p-4 shadow-card',
+          'ui-panel ui-accent mb-4 flex flex-wrap items-start justify-between gap-4 rounded-lg border border-l-4 bg-surface p-4 shadow-card',
           order.criticaVencida ? 'border-red-300 border-l-red-600 dark:border-red-500/40' : 'border-border',
           !order.criticaVencida && order.prioridad === 'CRITICA' && 'border-l-red-600',
           order.prioridad === 'ALTA' && 'border-l-amber-500',

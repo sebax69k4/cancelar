@@ -60,14 +60,14 @@ export function Modal({ open, onClose, title, description, icon, children, foote
         if (e.target === ref.current && !busy) onClose();
       }}
       className={cn(
-        'm-auto w-[calc(100%-2rem)] rounded-lg border border-border bg-surface p-0 text-fg shadow-pop',
+        'ui-window m-auto w-[calc(100%-2rem)] rounded-lg border border-border bg-surface p-0 text-fg shadow-pop',
         'backdrop:bg-overlay open:animate-modal-in',
         widths[size],
       )}
     >
       {open && (
         <div className="flex max-h-[85vh] flex-col">
-          <header className="flex items-start gap-3 border-b border-border px-5 py-4">
+          <header className="ui-titlebar flex items-start gap-3 border-b border-border px-5 py-4 classic:px-3 classic:py-2">
             {icon && <div className="mt-0.5 shrink-0 [&_svg]:size-5">{icon}</div>}
             <div className="min-w-0 flex-1">
               <h2 id={titleId} className="text-lg font-semibold">

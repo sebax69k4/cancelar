@@ -13,7 +13,7 @@ interface Action {
 }
 
 const itemClass =
-  'flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-surface-2';
+  'ui-btn flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-surface-2 classic:mb-1.5';
 
 export function QuickActions() {
   const user = useCurrentUser();

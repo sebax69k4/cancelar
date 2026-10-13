@@ -48,7 +48,7 @@ export function describedBy(id: string, hint?: string, error?: string): string |
 }
 
 export const controlBase =
-  'w-full rounded-sm border border-border-strong bg-surface text-fg placeholder:text-subtle ' +
+  'ui-field w-full rounded-sm border border-border-strong bg-surface text-fg placeholder:text-subtle ' +
   'transition-colors hover:border-muted focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-focus focus-visible:border-focus ' +
   'disabled:cursor-not-allowed disabled:bg-surface-2 disabled:opacity-70 ' +
   'aria-[invalid=true]:border-danger';

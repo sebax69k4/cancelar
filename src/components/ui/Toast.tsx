@@ -41,7 +41,7 @@ function ToastCard({ item }: { item: ToastItem }) {
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       className={cn(
-        'relative flex w-full gap-3 overflow-hidden rounded-lg border border-border bg-surface py-3 pr-2 pl-4 shadow-pop animate-toast-in',
+        'ui-window relative flex w-full gap-3 overflow-hidden rounded-lg border border-border bg-surface py-3 pr-2 pl-4 shadow-pop animate-toast-in',
         "before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-['']",
         accent[item.type],
       )}

@@ -133,7 +133,7 @@ export function ClientPicker({ value, onChange, onCreateNew, error }: ClientPick
           id={listId}
           role="listbox"
           aria-label="Clientes encontrados"
-          className="absolute top-[68px] right-0 left-0 z-20 max-h-72 overflow-y-auto rounded-md border border-border bg-surface p-1 shadow-pop"
+          className="ui-window absolute top-[68px] right-0 left-0 z-20 max-h-72 overflow-y-auto rounded-md border border-border bg-surface p-1 shadow-pop"
         >
           {results.map((c, i) => (
             <li

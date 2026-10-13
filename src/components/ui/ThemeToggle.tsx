@@ -4,7 +4,11 @@ import { applyTheme, getThemePreference, type ThemePreference } from '@/lib/them
 import { Button } from './Button';
 
 const order: readonly ThemePreference[] = ['light', 'dark', 'system'];
-const labels: Record<ThemePreference, string> = { light: 'claro', dark: 'oscuro', system: 'del sistema' };
+const labels: Record<ThemePreference, string> = {
+  light: 'claro',
+  dark: 'oscuro (Terminal CRT en estilo clásico)',
+  system: 'del sistema',
+};
 
 export function ThemeToggle() {
   const [pref, setPref] = useState<ThemePreference>(() => getThemePreference());

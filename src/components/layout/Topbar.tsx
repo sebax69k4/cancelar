@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LogOut, Menu, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { SkinToggle } from '@/components/ui/SkinToggle';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { signOut } from '@/lib/auth/mockCurrentUser';
@@ -34,39 +35,50 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-surface/90 px-4 backdrop-blur md:px-6">
+    <header className="ui-toolbar sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-surface/90 px-4 backdrop-blur md:px-6 classic:h-12 classic:px-3">
       <Button variant="ghost" iconOnly aria-label="Abrir menú" onClick={onOpenMenu} className="lg:hidden">
         <Menu aria-hidden="true" />
       </Button>
 
-      <form role="search" onSubmit={onSearch} className="relative min-w-0 flex-1 md:max-w-md">
-        <label htmlFor="global-search" className="sr-only">
+      <form role="search" onSubmit={onSearch} className="flex min-w-0 flex-1 items-center gap-2 md:max-w-xl">
+        <label htmlFor="global-search" className="hidden shrink-0 items-center gap-1 text-sm font-bold classic:md:flex">
+          <Search className="size-4 text-primary" aria-hidden="true" />
+          Buscar:
+          <span className="sr-only"> orden por número, cliente, teléfono o número de serie</span>
+        </label>
+        <label htmlFor="global-search" className="sr-only classic:md:hidden">
           Buscar orden por número, cliente, teléfono o número de serie
         </label>
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle" aria-hidden="true" />
-        <input
-          ref={searchRef}
-          id="global-search"
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar orden, cliente, teléfono o serie…"
-          className="h-10 w-full rounded-md border border-border bg-surface-2 pr-10 pl-9 text-sm placeholder:text-subtle focus-visible:border-focus focus-visible:bg-surface"
-        />
-        <kbd className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 rounded border border-border bg-surface px-1.5 font-mono text-[11px] text-subtle md:block" aria-hidden="true">
-          /
-        </kbd>
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle classic:md:hidden" aria-hidden="true" />
+          <input
+            ref={searchRef}
+            id="global-search"
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar orden, cliente, teléfono o serie…"
+            className="ui-field h-10 w-full rounded-md border border-border bg-surface-2 pr-10 pl-9 text-sm placeholder:text-subtle focus-visible:border-focus focus-visible:bg-surface classic:h-8 classic:md:pl-2 classic:font-mono"
+          />
+          <kbd className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 rounded border border-border bg-surface px-1.5 font-mono text-[11px] text-subtle md:block" aria-hidden="true">
+            /
+          </kbd>
+        </div>
+        <Button type="submit" variant="secondary" size="sm" className="hidden classic:md:inline-flex">
+          Buscar
+        </Button>
       </form>
 
       <div className="ml-auto flex items-center gap-1.5">
         <div className="hidden sm:block">
           <RoleSwitcher />
         </div>
+        <SkinToggle />
         <ThemeToggle />
         {user && (
           <div className="flex items-center gap-2 pl-1">
             <span
-              className="flex size-9 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary"
+              className="flex size-9 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary classic:size-8 classic:rounded-none classic:bg-primary classic:text-primary-fg"
               aria-hidden="true"
             >
               {initials(user.nombre)}
