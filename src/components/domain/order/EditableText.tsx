@@ -14,11 +14,13 @@ export interface EditableTextProps {
   busy?: boolean;
   minLength?: number;
   onSave: (value: string) => Promise<unknown>;
+  /** Cada vez que cambia (y es > 0) se abre la edición: lo usa «Siguiente paso». */
+  editRequest?: number;
 }
 
 /** Bloque de texto con modo lectura/edición (diagnóstico, solución). */
 export function EditableText({
-  id, label, value, emptyText, placeholder, hint, canEdit, busy, minLength = 5, onSave,
+  id, label, value, emptyText, placeholder, hint, canEdit, busy, minLength = 5, onSave, editRequest = 0,
 }: EditableTextProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? '');
@@ -27,6 +29,10 @@ export function EditableText({
   useEffect(() => {
     if (!editing) setDraft(value ?? '');
   }, [value, editing]);
+
+  useEffect(() => {
+    if (editRequest > 0 && canEdit) setEditing(true);
+  }, [editRequest, canEdit]);
 
   if (!editing) {
     return (

@@ -39,7 +39,8 @@ function ShellInner({ currentPath, permission, title, description, actions, cust
   const session = useSessionStatus();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
-  const dashboard = useDashboard({ enabled: user !== null && can(user.rol, 'nav.alertas') });
+  // Contadores del menú (órdenes activas y alertas)
+  const dashboard = useDashboard({ enabled: user !== null });
 
   // Modo backend: recupera la sesión (cookie) desde /auth/me
   useEffect(() => {
@@ -68,7 +69,10 @@ function ShellInner({ currentPath, permission, title, description, actions, cust
   if (!user) return <ShellSkeleton label="Redirigiendo al inicio de sesión…" />;
 
   const allowed = !permission || can(user.rol, permission);
-  const counts = { '/alertas': dashboard.data?.alertasPendientes ?? 0 };
+  const counts = {
+    '/ordenes': dashboard.data?.metrics.activas ?? 0,
+    '/alertas': dashboard.data?.alertasPendientes ?? 0,
+  };
 
   return (
     // Estilo clásico: ventana de alto fijo (barra de título + contenido con scroll propio + barra de estado)

@@ -1,6 +1,7 @@
 import { ArrowUpCircle, Flame, Lock, PackageCheck, Plus, Rocket, Wrench } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { CriticalList } from '@/components/domain/dashboard/CriticalList';
+import { MyWorkPanel } from '@/components/domain/dashboard/MyWorkPanel';
 import { MetricCard } from '@/components/domain/dashboard/MetricCard';
 import { QuickActions } from '@/components/domain/dashboard/QuickActions';
 import { RecentOrders } from '@/components/domain/dashboard/RecentOrders';
@@ -88,6 +89,8 @@ function Content() {
 
       <CriticalList informes={informesCriticos} />
 
+      {user && <MyWorkPanel user={user} />}
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <RecentOrders orders={recientes} nowMs={now()} />
         <QuickActions />
@@ -106,7 +109,8 @@ export default function DashboardPage() {
       description={user ? `Hola, ${user.nombre.split(' ')[0]}. Este es el estado del taller.` : undefined}
       actions={
         <PermissionGuard permission="order.create">
-          <LinkButton href="/ordenes/nueva" leftIcon={<Plus aria-hidden="true" />}>
+          {/* En escritorio ya está fijo en el menú lateral */}
+          <LinkButton href="/ordenes/nueva" className="lg:hidden" leftIcon={<Plus aria-hidden="true" />}>
             Nueva orden
           </LinkButton>
         </PermissionGuard>

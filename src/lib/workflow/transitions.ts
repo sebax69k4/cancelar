@@ -82,6 +82,44 @@ export function closeChecklist(order: Orden): ChecklistItem[] {
   ];
 }
 
+// ---------------------------------------------------------------- siguiente paso (UI)
+
+export type StepRequirementId = 'tecnico' | 'diagnostico' | 'solucion' | 'evidencia' | 'validada' | 'desbloqueo';
+
+export interface StepRequirement {
+  id: StepRequirementId;
+  label: string;
+  done: boolean;
+}
+
+/**
+ * Requisitos de datos para avanzar al estado `to`, en positivo («Diagnóstico cargado»), para
+ * mostrarlos como checklist antes de intentar el cambio. Coincide con canTransition (sin permisos).
+ */
+export function stepRequirements(order: Orden, to: EstadoOrden): StepRequirement[] {
+  const reqs: StepRequirement[] = [];
+  if (order.bloqueada) reqs.push({ id: 'desbloqueo', label: 'Orden desbloqueada', done: false });
+  switch (to) {
+    case 'EN_DIAGNOSTICO':
+      reqs.push({ id: 'tecnico', label: 'Técnico asignado', done: Boolean(order.tecnicoId) });
+      break;
+    case 'EN_REPARACION':
+      if (order.estado === 'EN_DIAGNOSTICO') {
+        reqs.push({ id: 'diagnostico', label: 'Diagnóstico cargado', done: Boolean(order.diagnostico?.trim()) });
+      }
+      break;
+    case 'LISTO_PARA_RETIRAR':
+      reqs.push({ id: 'solucion', label: 'Solución documentada', done: Boolean(order.solucion?.trim()) });
+      break;
+    case 'CERRADO':
+      for (const c of closeChecklist(order)) reqs.push({ id: c.id, label: c.label, done: c.done });
+      break;
+    default:
+      break;
+  }
+  return reqs;
+}
+
 // ---------------------------------------------------------------- transición
 
 function transitionPermission(order: Orden, to: EstadoOrden, user: Usuario): string | null {

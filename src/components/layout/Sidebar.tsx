@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { Cpu, X } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { Cpu, Plus, X } from 'lucide-react';
+import { Button, LinkButton } from '@/components/ui/Button';
+import { useCurrentUser, usePermission } from '@/hooks/useCurrentUser';
 import { can } from '@/lib/auth/permissions';
 import { cn } from '@/lib/cn';
 import { DemoPanel } from './DemoPanel';
-import { NAV_ITEMS, isActive } from './nav';
+import { NAV_GROUP_LABEL, NAV_ITEMS, isActive, type NavGroup } from './nav';
 
 export interface SidebarProps {
   currentPath: string;
@@ -29,46 +29,78 @@ function Brand() {
   );
 }
 
-/** Encabezado de sección, solo visible en el estilo clásico. */
-function SectionLabel({ children }: { children: string }) {
+/** Encabezado de grupo del menú (en el estilo clásico, con línea divisoria). */
+function SectionLabel({ id, children }: { id: string; children: string }) {
   return (
-    <p className="mb-1.5 hidden border-b border-border-strong px-1 pb-1 text-[11px] font-bold tracking-wide text-muted uppercase classic:block">
+    <p
+      id={id}
+      className="mb-1 px-3 text-[11px] font-semibold tracking-wider text-subtle uppercase classic:mb-1.5 classic:border-b classic:border-border-strong classic:px-1 classic:pb-1 classic:font-bold classic:text-muted"
+    >
       {children}
     </p>
+  );
+}
+
+/** Acción más frecuente siempre a mano (como «Redactar» en Gmail o «+ Nuevo» en Zendesk). */
+function NewOrderButton() {
+  if (!usePermission('order.create')) return null;
+  return (
+    <LinkButton href="/ordenes/nueva" className="w-full" leftIcon={<Plus aria-hidden="true" />}>
+      Nueva orden
+    </LinkButton>
   );
 }
 
 function NavList({ currentPath, counts }: Pick<SidebarProps, 'currentPath' | 'counts'>) {
   const user = useCurrentUser();
   const items = NAV_ITEMS.filter((i) => user && can(user.rol, i.permission));
+  const groups = (Object.keys(NAV_GROUP_LABEL) as NavGroup[])
+    .map((g) => ({ g, items: items.filter((i) => i.group === g) }))
+    .filter((x) => x.items.length > 0);
+
   return (
-    <ul className="flex flex-col gap-0.5 classic:gap-1">
-      {items.map(({ href, label, icon: Icon }) => {
-        const active = isActive(currentPath, href);
-        const count = counts?.[href];
-        return (
-          <li key={href}>
-            <a
-              href={href}
-              aria-current={active ? 'page' : undefined}
-              className={cn(
-                'ui-navitem flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors',
-                active ? 'bg-primary-soft text-primary' : 'text-muted hover:bg-surface-2 hover:text-fg',
-              )}
-            >
-              <Icon className="size-[18px] shrink-0" aria-hidden="true" />
-              <span className="flex-1">{label}</span>
-              {count !== undefined && count > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-700 px-1.5 text-[11px] font-bold text-white dark:bg-red-500 dark:text-red-950">
-                  {count}
-                  <span className="sr-only"> pendientes</span>
-                </span>
-              )}
-            </a>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="flex flex-col gap-5 classic:gap-3">
+      {groups.map(({ g, items: groupItems }) => (
+        <div key={g}>
+          <SectionLabel id={`nav-${g}`}>{NAV_GROUP_LABEL[g]}</SectionLabel>
+          <ul aria-labelledby={`nav-${g}`} className="flex flex-col gap-0.5 classic:gap-1">
+            {groupItems.map(({ href, label, icon: Icon }) => {
+              const active = isActive(currentPath, href);
+              const count = counts?.[href];
+              const alert = href === '/alertas';
+              return (
+                <li key={href}>
+                  <a
+                    href={href}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'ui-navitem flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors',
+                      active ? 'bg-primary-soft text-primary' : 'text-muted hover:bg-surface-2 hover:text-fg',
+                    )}
+                  >
+                    <Icon className="size-[18px] shrink-0" aria-hidden="true" />
+                    <span className="flex-1">{label}</span>
+                    {count !== undefined && count > 0 && (
+                      <span
+                        className={cn(
+                          'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums',
+                          alert
+                            ? 'bg-red-700 text-white dark:bg-red-500 dark:text-red-950'
+                            : 'bg-surface-3 text-fg',
+                        )}
+                      >
+                        {count}
+                        <span className="sr-only">{alert ? ' pendientes' : ' activas'}</span>
+                      </span>
+                    )}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -96,8 +128,8 @@ export function Sidebar({ currentPath, counts, mobileOpen, onMobileClose }: Side
         <div className="classic:hidden">
           <Brand />
         </div>
+        <NewOrderButton />
         <nav aria-label="Principal" className="flex-1">
-          <SectionLabel>Navegación del taller</SectionLabel>
           <NavList currentPath={currentPath} counts={counts} />
         </nav>
         <DemoPanel />
@@ -114,8 +146,8 @@ export function Sidebar({ currentPath, counts, mobileOpen, onMobileClose }: Side
                 <X aria-hidden="true" />
               </Button>
             </div>
+            <NewOrderButton />
             <nav aria-label="Principal" className="flex-1">
-              <SectionLabel>Navegación del taller</SectionLabel>
               <NavList currentPath={currentPath} counts={counts} />
             </nav>
             <DemoPanel />

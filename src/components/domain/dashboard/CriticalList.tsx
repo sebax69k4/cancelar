@@ -2,7 +2,6 @@ import { AlarmClock, Check, CheckCircle2, Flame, MessageSquare } from 'lucide-re
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
-import { EmptyState } from '@/components/ui/States';
 import { useMarkReportRead } from '@/hooks/useDashboard';
 import { formatHours } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -17,6 +16,21 @@ export function CriticalList({ informes }: CriticalListProps) {
   const markRead = useMarkReportRead();
   const unread = informes.filter((i) => !i.leido).length;
 
+  // Sin críticas vencidas: una línea discreta en vez de un bloque vacío que ocupa el mejor lugar
+  if (informes.length === 0) {
+    return (
+      <p
+        role="status"
+        className="ui-panel flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-900 dark:border-green-400/30 dark:bg-green-400/10 dark:text-green-200"
+      >
+        <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+        <span>
+          <strong className="font-semibold">Sin críticas vencidas.</strong> Ninguna orden crítica lleva más de 24 h abierta.
+        </span>
+      </p>
+    );
+  }
+
   return (
     <Card className={cn(informes.length > 0 && 'border-red-300 dark:border-red-500/40')}>
       <CardHeader
@@ -29,14 +43,7 @@ export function CriticalList({ informes }: CriticalListProps) {
           </a>
         }
       />
-      {informes.length === 0 ? (
-        <EmptyState
-          compact
-          icon={<CheckCircle2 className="text-success" aria-hidden="true" />}
-          title="Sin críticas vencidas"
-          description="No hay órdenes críticas abiertas hace más de 24 horas."
-        />
-      ) : (
+      {(
         <ul className="divide-y divide-border">
           {informes.map((inf) => {
             const o = inf.orden;

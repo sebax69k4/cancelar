@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FilterX, Plus, Search, SquareKanban } from 'lucide-react';
+import { Columns3, FilterX, List, Plus, Search, SquareKanban } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { OrdersTable } from '@/components/domain/OrdersTable';
 import { KanbanBoard } from '@/components/domain/kanban/KanbanBoard';
 import { ChangeStatusModal } from '@/components/domain/order/modals/ChangeStatusModal';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Select } from '@/components/ui/Select';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States';
 import { useUsers } from '@/hooks/useCatalog';
@@ -16,7 +18,11 @@ import { useOrders } from '@/hooks/useOrders';
 import { errorMessage } from '@/lib/api/errors';
 import type { OrderFilters } from '@/lib/api/apiClient';
 import { ESTADO_LABEL, PRIORIDAD_LABEL, ROL_LABEL } from '@/lib/domain/labels';
+import { readStorage, writeStorage } from '@/lib/storage';
 import { ESTADOS, PRIORIDADES, type EstadoOrden, type OrdenResumen, type Prioridad } from '@/types/domain';
+
+type OrdersView = 'tablero' | 'lista';
+const VIEW_KEY = 'st.ordersView';
 
 function readFilters(): OrderFilters {
   const p = new URLSearchParams(window.location.search);
@@ -59,6 +65,12 @@ function Board() {
   const users = useUsers();
   const [filters, setFilters] = useState<OrderFilters>(() => readFilters());
   const [moving, setMoving] = useState<{ order: OrdenResumen; to?: EstadoOrden } | null>(null);
+  // Preferencia de vista por usuario de este navegador (es UI, no un dato de negocio)
+  const [view, setView] = useState<OrdersView>(() => (readStorage(VIEW_KEY) === 'lista' ? 'lista' : 'tablero'));
+  const changeView = (v: OrdersView) => {
+    setView(v);
+    writeStorage(VIEW_KEY, v);
+  };
   const q = useDebounced(filters.q ?? '', 250);
 
   const apiFilters = useMemo<OrderFilters>(
@@ -119,14 +131,26 @@ function Board() {
             Limpiar
           </Button>
         </div>
-        {user?.rol === 'TECNICO' && (
-          <p className="mt-2 text-xs text-muted">Como Técnico ves solo las órdenes asignadas a vos.</p>
-        )}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+          <p className="text-xs text-muted" aria-live="polite">
+            {orders.data ? `${orders.data.length} ${orders.data.length === 1 ? 'orden' : 'órdenes'}` : ''}
+            {user?.rol === 'TECNICO' && ' · como Técnico ves solo las asignadas a vos'}
+          </p>
+          <div className="w-56">
+            <SegmentedControl
+              label="Vista"
+              hideLabel
+              name="vista-ordenes"
+              value={view}
+              onChange={changeView}
+              options={[
+                { value: 'tablero', label: 'Tablero', icon: <Columns3 aria-hidden="true" /> },
+                { value: 'lista', label: 'Lista', icon: <List aria-hidden="true" /> },
+              ]}
+            />
+          </div>
+        </div>
       </Card>
-
-      <p className="sr-only" aria-live="polite">
-        {orders.data ? `${orders.data.length} órdenes encontradas` : ''}
-      </p>
 
       {orders.isPending ? (
         <BoardSkeleton />
@@ -156,11 +180,18 @@ function Board() {
           {orders.data.length === 0 && (
             <p className="mb-3 text-sm text-muted">Ninguna orden coincide con los filtros.</p>
           )}
-          <KanbanBoard
-            orders={orders.data}
-            columns={columns}
-            onRequestMove={(order, to) => setMoving({ order, to })}
-          />
+          {view === 'tablero' ? (
+            <KanbanBoard
+              orders={orders.data}
+              columns={columns}
+              onRequestMove={(order, to) => setMoving({ order, to })}
+            />
+          ) : (
+            <OrdersTable
+              orders={filters.estado ? orders.data.filter((o) => o.estado === filters.estado) : orders.data}
+              onMove={(order) => setMoving({ order })}
+            />
+          )}
         </>
       )}
 
@@ -179,10 +210,11 @@ export default function OrdersBoardPage() {
       currentPath="/ordenes"
       permission="nav.ordenes"
       title="Órdenes"
-      description="Arrastrá una tarjeta o usá «Mover» para cambiar su estado. Cada cambio pide un comentario."
+      description="Seguí cada orden por su estado. Para avanzarla, arrastrá la tarjeta o usá «Mover»."
       actions={
         <PermissionGuard permission="order.create">
-          <LinkButton href="/ordenes/nueva" leftIcon={<Plus aria-hidden="true" />}>Nueva orden</LinkButton>
+          {/* En escritorio ya está fijo en el menú lateral */}
+          <LinkButton href="/ordenes/nueva" className="lg:hidden" leftIcon={<Plus aria-hidden="true" />}>Nueva orden</LinkButton>
         </PermissionGuard>
       }
     >

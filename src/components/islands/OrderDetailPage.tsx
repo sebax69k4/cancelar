@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
-  AlarmClock, ArrowLeft, ArrowRightLeft, ArrowUpCircle, BadgeCheck, CalendarClock, CircleCheckBig,
-  ClipboardList, FileSearch, History, Laptop, Lock, LockOpen, Mail, Phone, RotateCcw, UserRound, Wrench,
+  AlarmClock, ArrowLeft, ArrowUpCircle, BadgeCheck, CalendarClock, CircleCheckBig,
+  ClipboardList, FileSearch, History, Laptop, Lock, LockOpen, Mail, Phone, UserRound, Wrench,
 } from 'lucide-react';
 import { AlertFlags } from '@/components/domain/AlertFlags';
 import { PriorityBadge } from '@/components/domain/PriorityBadge';
@@ -33,8 +33,10 @@ import { formatDate, formatDateTime, formatHours, formatMoney } from '@/lib/form
 import { notifyError } from '@/lib/notify';
 import { toast } from '@/lib/toast';
 import {
-  MIN_COMENTARIO, MIN_MOTIVO, canActOnOrder, canValidate, closeChecklist, isAssignedTo,
+  MIN_COMENTARIO, MIN_MOTIVO, NEXT_STATE, canActOnOrder, canValidate, closeChecklist,
 } from '@/lib/workflow/transitions';
+import { NextStepCard } from '@/components/domain/order/NextStepCard';
+import { WorkflowStepper } from '@/components/domain/order/WorkflowStepper';
 import type { OrdenResumen } from '@/types/domain';
 
 type TabId = 'detalle' | 'historial' | 'solucion';
@@ -88,6 +90,16 @@ function Detail({ id }: { id: string }) {
   const actions = useOrderActions(id);
   const [tab, setTab] = useState<TabId>(initialTab);
   const [modal, setModal] = useState<ModalId>(null);
+  // «Siguiente paso» puede abrir la edición de diagnóstico/solución o llevar a una sección
+  const [editRequest, setEditRequest] = useState<{ field: 'diag' | 'sol'; n: number }>({ field: 'diag', n: 0 });
+  const [scrollTarget, setScrollTarget] = useState<{ id: string; n: number } | null>(null);
+
+  useEffect(() => {
+    if (!scrollTarget) return;
+    const el = document.getElementById(scrollTarget.id);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.querySelector<HTMLElement>('button, a, input, textarea')?.focus({ preventScroll: true });
+  }, [scrollTarget]);
 
   if (query.isPending) {
     return (
@@ -122,15 +134,9 @@ function Detail({ id }: { id: string }) {
 
   const closed = order.estado === 'CERRADO';
   const canEdit = !closed && canActOnOrder(user, order, 'edit');
-  const canMove =
-    !closed &&
-    (can(user.rol, 'order.transition') ||
-      (can(user.rol, 'order.transition.own') && isAssignedTo(order, user)) ||
-      (can(user.rol, 'order.transition.reception') && order.estado === 'RECIBIDO'));
   const showBlock = !closed && !order.bloqueada && canActOnOrder(user, order, 'block');
   const showUnblock = order.bloqueada && can(user.rol, 'order.unblock');
   const showEscalate = !closed && !order.escalada && canActOnOrder(user, order, 'escalate');
-  const showReopen = closed && can(user.rol, 'order.reopen');
   const showClose = order.estado === 'LISTO_PARA_RETIRAR' && can(user.rol, 'order.close');
   const validateRule = canValidate(order, user);
   const pendingClose = closeChecklist(order).filter((i) => !i.done).length;
@@ -193,22 +199,8 @@ function Detail({ id }: { id: string }) {
             atrasada={order.atrasada}
           />
         </div>
+        {/* Acciones secundarias: avanzar en el flujo está en «Siguiente paso» */}
         <div className="flex flex-wrap items-center gap-2">
-          {canMove && (
-            <Button leftIcon={<ArrowRightLeft aria-hidden="true" />} onClick={() => setModal('estado')}>
-              Cambiar estado
-            </Button>
-          )}
-          {showClose && (
-            <Button variant={pendingClose ? 'outline' : 'primary'} leftIcon={<CircleCheckBig aria-hidden="true" />} onClick={() => setModal('cerrar')}>
-              Cerrar orden
-            </Button>
-          )}
-          {showReopen && (
-            <Button leftIcon={<RotateCcw aria-hidden="true" />} onClick={() => setModal('reabrir')}>
-              Reabrir
-            </Button>
-          )}
           {showBlock && (
             <Button variant="outline" leftIcon={<Lock aria-hidden="true" />} onClick={() => setModal('bloquear')}>
               Bloquear
@@ -224,6 +216,9 @@ function Detail({ id }: { id: string }) {
               Escalar
             </Button>
           )}
+        </div>
+        <div className="w-full border-t border-border pt-4">
+          <WorkflowStepper estado={order.estado} bloqueada={order.bloqueada} />
         </div>
       </header>
 
@@ -266,6 +261,48 @@ function Detail({ id }: { id: string }) {
         )}
       </div>
 
+      <div className="mb-6">
+        <NextStepCard
+          order={order}
+          user={user}
+          onAdvance={() => setModal(NEXT_STATE[order.estado] === 'CERRADO' ? 'cerrar' : 'estado')}
+          onOtherState={() => setModal('estado')}
+          onReopen={() => setModal('reabrir')}
+          onResolve={(req) => {
+            switch (req) {
+              case 'tecnico':
+                setScrollTarget({ id: 'asignacion', n: Date.now() });
+                break;
+              case 'diagnostico':
+                setTab('detalle');
+                if (canEdit) setEditRequest((r) => ({ field: 'diag', n: r.n + 1 }));
+                setScrollTarget({ id: 'seccion-diagnostico', n: Date.now() });
+                break;
+              case 'solucion':
+                setTab('solucion');
+                if (canEdit) setEditRequest((r) => ({ field: 'sol', n: r.n + 1 }));
+                setScrollTarget({ id: 'seccion-solucion', n: Date.now() });
+                break;
+              case 'evidencia':
+                setTab('solucion');
+                setScrollTarget({ id: 'seccion-evidencia', n: Date.now() });
+                break;
+              case 'validada':
+                if (can(user.rol, 'order.validate') && validateRule.ok) setModal('validar');
+                else {
+                  setTab('solucion');
+                  setScrollTarget({ id: 'seccion-cierre', n: Date.now() });
+                }
+                break;
+              case 'desbloqueo':
+                if (showUnblock) setModal('desbloquear');
+                else window.scrollTo({ top: 0, behavior: 'smooth' });
+                break;
+            }
+          }}
+        />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* Pestañas */}
         <Card className="min-w-0 p-4">
@@ -304,6 +341,7 @@ function Detail({ id }: { id: string }) {
                   <h3 className="text-sm font-semibold">Falla reportada</h3>
                   <p className="rounded-md bg-surface-2 px-3 py-2 text-sm whitespace-pre-line">{order.fallaReportada}</p>
                 </div>
+                <div id="seccion-diagnostico" className="scroll-mt-24">
                 <EditableText
                   id="det-diag"
                   label="Diagnóstico"
@@ -313,7 +351,9 @@ function Detail({ id }: { id: string }) {
                   canEdit={canEdit}
                   busy={actions.update.isPending}
                   onSave={(v) => run(actions.update.mutateAsync({ input: { diagnostico: v } }), 'Diagnóstico guardado')}
+                  editRequest={editRequest.field === 'diag' ? editRequest.n : 0}
                 />
+                </div>
                 <div className="rounded-md border border-border px-3 py-2 text-sm">
                   <span className="font-medium">Servicio:</span> {order.servicio.nombre}{' '}
                   <span className="text-muted">· precio base {formatMoney(order.servicio.precioBase)}</span>
@@ -325,6 +365,7 @@ function Detail({ id }: { id: string }) {
 
             {tab === 'solucion' && (
               <div className="flex flex-col gap-6">
+                <div id="seccion-solucion" className="scroll-mt-24">
                 <EditableText
                   id="det-sol"
                   label="Solución"
@@ -336,8 +377,10 @@ function Detail({ id }: { id: string }) {
                   minLength={MIN_MOTIVO}
                   busy={actions.update.isPending}
                   onSave={(v) => run(actions.update.mutateAsync({ input: { solucion: v } }), 'Solución guardada')}
+                  editRequest={editRequest.field === 'sol' ? editRequest.n : 0}
                 />
-                <section aria-labelledby="ev-title" className="flex flex-col gap-2">
+                </div>
+                <section id="seccion-evidencia" aria-labelledby="ev-title" className="flex scroll-mt-24 flex-col gap-2">
                   <h3 id="ev-title" className="text-sm font-semibold">Evidencia</h3>
                   <EvidenceUploader
                     evidencias={order.evidencias}
@@ -348,7 +391,7 @@ function Detail({ id }: { id: string }) {
                     fileUrl={(evId) => apiClient.evidenceFileUrl(order.id, evId)}
                   />
                 </section>
-                <section aria-labelledby="cl-title" className="flex flex-col gap-2">
+                <section id="seccion-cierre" aria-labelledby="cl-title" className="flex scroll-mt-24 flex-col gap-2">
                   <h3 id="cl-title" className="text-sm font-semibold">Checklist de cierre</h3>
                   <CloseChecklist
                     order={order}
@@ -425,6 +468,7 @@ function Detail({ id }: { id: string }) {
               </SummaryRow>
             </dl>
           </Card>
+          <div id="asignacion" className="scroll-mt-24">
           <AssignmentCard
             key={`${order.responsableId}-${order.tecnicoId}-${order.prioridad}`}
             order={order}
@@ -433,6 +477,7 @@ function Detail({ id }: { id: string }) {
             busy={actions.update.isPending}
             onSave={(input) => run(actions.update.mutateAsync({ input }), 'Asignación actualizada')}
           />
+          </div>
         </div>
       </div>
 

@@ -17,11 +17,13 @@ export interface SegmentedControlProps<T extends string> {
   required?: boolean;
   error?: string;
   hint?: string;
+  /** Oculta el título visualmente (sigue disponible para lectores de pantalla). */
+  hideLabel?: boolean;
 }
 
 /** Grupo de radios con aspecto de botones segmentados. Navegable con flechas (nativo). */
 export function SegmentedControl<T extends string>({
-  label, name, options, value, onChange, required, error, hint,
+  label, name, options, value, onChange, required, error, hint, hideLabel,
 }: SegmentedControlProps<T>) {
   const id = useId();
   return (
@@ -30,7 +32,7 @@ export function SegmentedControl<T extends string>({
       aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
       aria-invalid={error ? true : undefined}
     >
-      <legend className="mb-1.5 text-sm font-medium">
+      <legend className={hideLabel ? 'sr-only' : 'mb-1.5 text-sm font-medium'}>
         {label}
         {required && (
           <span className="ml-0.5 text-danger" aria-hidden="true">

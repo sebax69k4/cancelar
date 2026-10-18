@@ -155,6 +155,21 @@ src/
 
 **Regla de dependencias:** `components → hooks → lib/api/apiClient → mocks`. Ningún componente importa `mocks/db.ts`.
 
+### Patrones de experiencia de uso
+
+Inspirados en sistemas de mesa de ayuda y talleres (ServiceNow, Jira Service Management, Zendesk, RepairShopr):
+
+| Patrón | Dónde | Para qué |
+|---|---|---|
+| **Línea de etapas** del flujo | `components/domain/order/WorkflowStepper.tsx` | Ver de un vistazo en qué etapa está la orden, cuáles pasó y cuáles faltan. |
+| **Siguiente paso** con requisitos | `components/domain/order/NextStepCard.tsx` | Muestra qué falta para avanzar y lleva directo a resolverlo («Cargar», «Adjuntar», «Validar»). El botón principal avanza al estado siguiente; «Mover a otro estado…» cubre los retrocesos. |
+| **Mi trabajo** por rol | `components/domain/dashboard/MyWorkPanel.tsx` | Colas de lo que cada rol tiene que hacer: el técnico, sus órdenes y qué les falta; recepción, a quién avisar que retire; el supervisor, qué validar y cerrar. |
+| **Nueva orden** fija en el menú | `components/layout/Sidebar.tsx` | La acción más frecuente siempre a un clic. El menú se agrupa en Operación y Registros, con contadores. |
+| **Búsqueda instantánea** | `components/layout/GlobalSearch.tsx` | Resultados de órdenes y clientes mientras se escribe; ↑ ↓ Enter, «/» para enfocar. |
+| **Vista Tablero / Lista** | `islands/OrdersBoardPage.tsx`, `components/domain/OrdersTable.tsx` | El tablero para el flujo; la lista para revisar muchas órdenes. La elección se recuerda en el navegador. |
+
+Los requisitos de cada paso salen de `stepRequirements()` en `lib/workflow/transitions.ts`, coherente con `canTransition()`: si cambia una regla, el checklist cambia solo.
+
 ### Navegación sin recargas
 
 Todas las pantallas internas cargan la misma isla, `src/components/islands/App.tsx`, que elige la pantalla según la URL (`src/lib/router.ts`). Al hacer clic en un enlace interno se actualiza el historial y cambia el contenido **sin recargar la página**: la sesión y los datos ya descargados se conservan, así que la pantalla aparece al instante. Además:
