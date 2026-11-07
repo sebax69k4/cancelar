@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { can, type Permission } from '@/lib/auth/permissions';
-import { ROL_LABEL } from '@/lib/domain/labels';
+import { rolesLabel } from '@/lib/domain/labels';
 import { EmptyState } from '@/components/ui/States';
 
 export interface PermissionGuardProps {
@@ -16,7 +16,7 @@ export interface PermissionGuardProps {
 export function PermissionGuard({ permission, children, fallback = null }: PermissionGuardProps) {
   const user = useCurrentUser();
   const list: readonly Permission[] = typeof permission === 'string' ? [permission] : permission;
-  const allowed = user !== null && list.some((p) => can(user.rol, p));
+  const allowed = user !== null && list.some((p) => can(user.roles, p));
   return <>{allowed ? children : fallback}</>;
 }
 
@@ -29,7 +29,7 @@ export function NoAccess() {
       title="No tenés acceso a esta sección"
       description={
         user
-          ? `Tu rol actual (${ROL_LABEL[user.rol]}) no tiene permiso. Cambiá de rol desde la barra superior para probar.`
+          ? `Tu rol actual (${rolesLabel(user.roles)}) no tiene permiso. Cambiá de rol desde la barra superior para probar.`
           : 'Iniciá sesión para continuar.'
       }
     />

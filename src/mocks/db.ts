@@ -5,7 +5,7 @@
 import { STORAGE_KEYS, readStorage, removeStorage, writeStorage } from '@/lib/storage';
 import type { Cliente, Equipo, Orden } from '@/types/domain';
 
-const VERSION = 1;
+const VERSION = 2;
 
 export interface DbState {
   version: typeof VERSION;
@@ -35,11 +35,28 @@ function isDbState(value: unknown): value is DbState {
   );
 }
 
+/** La versión 1 no tenía escalamientos ni resultado: se completan para no perder la demo. */
+function upgrade(value: unknown): unknown {
+  const v = value as { version?: number; ordenes?: Orden[] } | null;
+  if (v?.version !== 1 || !Array.isArray(v.ordenes)) return value;
+  return {
+    ...v,
+    version: VERSION,
+    ordenes: v.ordenes.map((o) => ({
+      ...o,
+      resultado: o.estado === 'CERRADO' ? 'REPARADO' : null,
+      informeNoReparacion: null,
+      avisoCliente: null,
+      escalamientos: [],
+    })),
+  };
+}
+
 function load(): DbState {
   const raw = readStorage(STORAGE_KEYS.db);
   if (!raw) return emptyDb();
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed = upgrade(JSON.parse(raw));
     return isDbState(parsed) ? parsed : emptyDb();
   } catch {
     return emptyDb();

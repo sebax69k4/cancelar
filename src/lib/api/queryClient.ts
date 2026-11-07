@@ -17,6 +17,10 @@ export const queryClient = new QueryClient({
 
 export const queryKeys = {
   users: ['users'] as const,
+  allUsers: ['all-users'] as const,
+  allServices: ['all-services'] as const,
+  setupStatus: ['setup-status'] as const,
+  setupProgress: ['setup-progress'] as const,
   services: ['services'] as const,
   clients: (q: string) => ['clients', q] as const,
   equipment: (params: object) => ['equipment', params] as const,

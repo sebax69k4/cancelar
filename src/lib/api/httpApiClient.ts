@@ -6,12 +6,13 @@
  * Autenticación: cookie HTTP-only emitida por el backend (credentials: 'include').
  */
 import type {
-  AlertsData, ApiClient, CreateClientInput, CreateEquipmentInput, CreateOrderInput, DashboardData,
-  EvidenceInput, OrderFilters, UpdateOrderInput,
+  AlertsData, ApiClient, CreateClientInput, CreateEquipmentInput, CreateOrderInput, CreateServiceInput, CreateUserInput,
+  DashboardData, EvidenceInput, OrderFilters, ResolveEscalationInput, ServicioAdmin, SetupProgress, SetupStatus,
+  UpdateOrderInput, UpdateServiceInput, UpdateTallerInput, UpdateUserInput, UsuarioAdmin,
 } from './apiClient';
 import { handleUnauthorized } from '@/lib/auth/mockCurrentUser';
 import { ApiError, type ApiErrorCode } from './errors';
-import type { Cliente, Equipo, EstadoOrden, OrdenResumen, Servicio, Usuario } from '@/types/domain';
+import type { CausaEscalamiento, Cliente, Equipo, EstadoOrden, OrdenResumen, Servicio, Usuario } from '@/types/domain';
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 type Query = Record<string, string | undefined>;
@@ -78,6 +79,50 @@ export class HttpApiClient implements ApiClient {
     return data as T;
   }
 
+  getSetupStatus() {
+    return this.request<SetupStatus>('GET', '/setup/status');
+  }
+
+  getSetupProgress() {
+    return this.request<SetupProgress>('GET', '/setup/progress');
+  }
+
+  updateTaller(input: UpdateTallerInput) {
+    return this.request<SetupProgress>('PATCH', '/setup/taller', { body: input });
+  }
+
+  completeSetup() {
+    return this.request<SetupProgress>('POST', '/setup/complete');
+  }
+
+  getAllUsers() {
+    return this.request<UsuarioAdmin[]>('GET', '/setup/users');
+  }
+
+  createUser(input: CreateUserInput) {
+    return this.request<UsuarioAdmin>('POST', '/setup/users', { body: input });
+  }
+
+  updateUser(id: string, input: UpdateUserInput) {
+    return this.request<UsuarioAdmin>('PATCH', `/setup/users/${encodeURIComponent(id)}`, { body: input });
+  }
+
+  getAllServices() {
+    return this.request<ServicioAdmin[]>('GET', '/setup/services');
+  }
+
+  createService(input: CreateServiceInput) {
+    return this.request<ServicioAdmin>('POST', '/setup/services', { body: input });
+  }
+
+  updateService(id: string, input: UpdateServiceInput) {
+    return this.request<ServicioAdmin>('PATCH', `/setup/services/${encodeURIComponent(id)}`, { body: input });
+  }
+
+  changePassword(actual: string, nueva: string) {
+    return this.request<void>('POST', '/auth/password', { body: { actual, nueva } });
+  }
+
   getUsers() {
     return this.request<Usuario[]>('GET', '/users');
   }
@@ -136,8 +181,24 @@ export class HttpApiClient implements ApiClient {
     return this.request<OrdenResumen>('POST', `/orders/${encodeURIComponent(id)}/unblock`, { body: { comentario } });
   }
 
-  escalateOrder(id: string, motivo: string) {
-    return this.request<OrdenResumen>('POST', `/orders/${encodeURIComponent(id)}/escalate`, { body: { motivo } });
+  escalateOrder(id: string, causa: CausaEscalamiento, motivo: string) {
+    return this.request<OrdenResumen>('POST', `/orders/${encodeURIComponent(id)}/escalate`, { body: { causa, motivo } });
+  }
+
+  takeEscalation(id: string) {
+    return this.request<OrdenResumen>('POST', `/orders/${encodeURIComponent(id)}/escalation/take`);
+  }
+
+  raiseEscalation(id: string, motivo: string) {
+    return this.request<OrdenResumen>('POST', `/orders/${encodeURIComponent(id)}/escalation/raise`, { body: { motivo } });
+  }
+
+  resolveEscalation(id: string, input: ResolveEscalationInput) {
+    return this.request<OrdenResumen>('POST', `/orders/${encodeURIComponent(id)}/escalation/resolve`, { body: input });
+  }
+
+  abandonOrder(id: string, motivo: string) {
+    return this.request<OrdenResumen>('POST', `/orders/${encodeURIComponent(id)}/abandon`, { body: { motivo } });
   }
 
   reopenOrder(id: string, to: EstadoOrden, motivo: string) {

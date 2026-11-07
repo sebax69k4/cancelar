@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Toaster } from '@/components/ui/Toast';
+import { apiClient } from '@/lib/api/apiClient';
 import { isMockApi } from '@/lib/api/config';
 import {
   firstUserWithRole, getMockCurrentUser, loadSession, signInAs, signInWithPassword,
@@ -40,6 +41,10 @@ function RealLogin() {
     void loadSession().then((u) => {
       if (u) window.location.replace(safeNext());
     });
+    // Sistema recién instalado: todavía no hay con qué entrar
+    void apiClient.getSetupStatus().then((s) => {
+      if (!s.cuentaCreada) window.location.replace('/registro');
+    }, () => undefined);
   }, []);
 
   const {
@@ -99,7 +104,7 @@ function RealLogin() {
 }
 
 /** Marco común de la página de login (panel de marca + formulario). */
-function LoginLayout({ subtitle, children }: { subtitle: string; children: ReactNode }) {
+export function LoginLayout({ title = 'Iniciar sesión', subtitle, children }: { title?: string; subtitle: string; children: ReactNode }) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
       <aside className="relative hidden overflow-hidden bg-[#0b1220] p-10 text-slate-100 lg:flex lg:flex-col">
@@ -133,7 +138,7 @@ function LoginLayout({ subtitle, children }: { subtitle: string; children: React
             </span>
             <span className="text-lg font-bold">ServicioTécnico</span>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Iniciar sesión</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="mt-1 text-muted">{subtitle}</p>
           {children}
         </div>

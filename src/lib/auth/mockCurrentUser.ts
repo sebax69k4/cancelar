@@ -89,6 +89,32 @@ export async function signInWithPassword(email: string, password: string): Promi
   return { ok: true };
 }
 
+/** Crea la primera cuenta (y el taller) y deja la sesión iniciada. */
+export async function signUp(input: { tallerNombre: string; nombre: string; email: string; password: string }): Promise<{ ok: true } | { ok: false; message: string }> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    return { ok: false, message: 'No se pudo conectar con el servidor' };
+  }
+  if (res.status === 429) return { ok: false, message: 'Demasiados intentos. Esperá un minuto y volvé a probar.' };
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { message?: unknown } | null;
+    const m = body?.message;
+    return { ok: false, message: typeof m === 'string' ? m : Array.isArray(m) ? m.join('. ') : 'No se pudo crear la cuenta' };
+  }
+  remoteUser = (await res.json()) as Usuario;
+  status = 'ready';
+  loading = Promise.resolve(remoteUser);
+  emit();
+  return { ok: true };
+}
+
 /** El backend respondió 401 (sesión vencida): se limpia la sesión y AppShell redirige al login. */
 export function handleUnauthorized(): void {
   if (isMockApi || remoteUser === null) return;
@@ -122,7 +148,7 @@ export function signInAs(userId: string): Usuario | null {
 }
 
 export function firstUserWithRole(rol: Rol): Usuario {
-  const user = MOCK_USERS.find((u) => u.rol === rol);
+  const user = MOCK_USERS.find((u) => u.roles.includes(rol));
   if (!user) throw new Error(`No hay usuario mock con rol ${rol}`);
   return user;
 }

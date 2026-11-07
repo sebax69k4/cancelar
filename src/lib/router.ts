@@ -38,7 +38,7 @@ export function subscribeRoute(listener: Listener): () => void {
 }
 
 /** Rutas que resuelve la app (el resto, ej. /login, navega con recarga normal). */
-const APP_ROUTE = /^\/(dashboard|alertas|clientes|equipos|design|ordenes(\/nueva|\/[^/]+)?)\/?$/;
+const APP_ROUTE = /^\/(dashboard|alertas|clientes|equipos|design|configuracion|cuenta|ordenes(\/nueva|\/[^/]+)?)\/?$/;
 
 export function isAppRoute(pathname: string): boolean {
   return APP_ROUTE.test(pathname);

@@ -4,7 +4,7 @@ import { SkinToggle } from '@/components/ui/SkinToggle';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { signOut } from '@/lib/auth/mockCurrentUser';
-import { ROL_LABEL } from '@/lib/domain/labels';
+import { rolesLabel } from '@/lib/domain/labels';
 import { initials } from '@/lib/format';
 import { GlobalSearch } from './GlobalSearch';
 import { RoleSwitcher } from './RoleSwitcher';
@@ -34,10 +34,10 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
             >
               {initials(user.nombre)}
             </span>
-            <span className="hidden leading-tight xl:block">
+            <a href="/cuenta" title="Mi cuenta" className="hidden leading-tight hover:underline xl:block">
               <span className="block text-sm font-semibold">{user.nombre}</span>
-              <span className="block text-xs text-muted">{ROL_LABEL[user.rol]}</span>
-            </span>
+              <span className="block text-xs text-muted">{rolesLabel(user.roles)}</span>
+            </a>
             <Button
               variant="ghost"
               iconOnly

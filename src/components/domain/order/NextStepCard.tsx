@@ -2,9 +2,9 @@ import { ArrowRight, CheckCircle2, CircleCheckBig, CircleDashed, Info, RotateCcw
 import { Button } from '@/components/ui/Button';
 import { can } from '@/lib/auth/permissions';
 import { cn } from '@/lib/cn';
-import { ESTADO_LABEL } from '@/lib/domain/labels';
+import { ESTADO_LABEL, RESULTADO_LABEL } from '@/lib/domain/labels';
 import { formatDateTime } from '@/lib/format';
-import { NEXT_STATE, canTransition, stepRequirements, type StepRequirementId } from '@/lib/workflow/transitions';
+import { NEXT_STATE, canTransition, isSinReparar, stepRequirements, type StepRequirementId } from '@/lib/workflow/transitions';
 import type { OrdenResumen, Usuario } from '@/types/domain';
 
 export interface NextStepCardProps {
@@ -23,9 +23,11 @@ const RESOLVE_LABEL: Record<StepRequirementId, string> = {
   tecnico: 'Asignar',
   diagnostico: 'Cargar',
   solucion: 'Documentar',
+  informe: 'Ver',
   evidencia: 'Adjuntar',
   validada: 'Validar',
   desbloqueo: 'Ver bloqueo',
+  escalamiento: 'Ver escalamiento',
 };
 
 /**
@@ -38,10 +40,14 @@ export function NextStepCard({ order, user, onAdvance, onOtherState, onReopen, o
       <section aria-label="Estado de la orden" className="ui-panel flex flex-wrap items-center gap-3 rounded-lg border border-green-300 bg-green-50 px-4 py-3 dark:border-green-400/30 dark:bg-green-400/10">
         <CircleCheckBig className="size-6 shrink-0 text-success" aria-hidden="true" />
         <div className="min-w-0 flex-1 text-sm">
-          <p className="font-semibold">Orden cerrada</p>
-          <p className="text-muted">{order.fechaCierre ? `Entregada el ${formatDateTime(order.fechaCierre)}.` : 'Entregada al cliente.'}</p>
+          <p className="font-semibold">Orden cerrada{order.resultado ? ` · ${RESULTADO_LABEL[order.resultado]}` : ''}</p>
+          <p className="text-muted">
+            {order.resultado === 'ABANDONADO'
+              ? 'El cliente no retiró el equipo.'
+              : order.fechaCierre ? `Entregada el ${formatDateTime(order.fechaCierre)}.` : 'Entregada al cliente.'}
+          </p>
         </div>
-        {can(user.rol, 'order.reopen') && (
+        {can(user.roles, 'order.reopen') && (
           <Button variant="outline" leftIcon={<RotateCcw aria-hidden="true" />} onClick={onReopen}>
             Reabrir
           </Button>
@@ -56,7 +62,7 @@ export function NextStepCard({ order, user, onAdvance, onOtherState, onReopen, o
   const rule = canTransition(order, next, user);
   const pending = reqs.filter((r) => !r.done).length;
   // Faltantes que no son de datos (permisos): se explican en texto
-  const permissionNotes = rule.missing.filter((m) => !/^(Falta|La orden está bloqueada)/.test(m));
+  const permissionNotes = rule.missing.filter((m) => !/^(Falta|La orden está bloqueada|Hay un escalamiento)/.test(m));
   const isClose = next === 'CERRADO';
 
   return (
@@ -67,7 +73,7 @@ export function NextStepCard({ order, user, onAdvance, onOtherState, onReopen, o
           <h2 id="next-step-title" className="mt-0.5 flex items-center gap-2 text-lg font-semibold">
             {ESTADO_LABEL[order.estado]}
             <ArrowRight className="size-4 text-subtle" aria-hidden="true" />
-            <span className="text-primary">{isClose ? 'Cerrar y entregar' : ESTADO_LABEL[next]}</span>
+            <span className="text-primary">{isClose ? (isSinReparar(order) ? 'Entregar sin reparar' : 'Cerrar y entregar') : ESTADO_LABEL[next]}</span>
           </h2>
 
           {reqs.length > 0 ? (

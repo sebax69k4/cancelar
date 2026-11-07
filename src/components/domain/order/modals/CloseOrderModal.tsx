@@ -1,6 +1,6 @@
 import { AlertTriangle, CircleCheckBig } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { MIN_COMENTARIO, canTransition } from '@/lib/workflow/transitions';
+import { MIN_COMENTARIO, canTransition, isSinReparar } from '@/lib/workflow/transitions';
 import type { OrdenResumen } from '@/types/domain';
 import { CloseChecklist } from '../CloseChecklist';
 import { ReasonModal } from './ReasonModal';
@@ -26,10 +26,14 @@ export function CloseOrderModal({ order, open, busy, onClose, onConfirm }: Close
       onClose={onClose}
       busy={busy}
       title={`Cerrar ${order.numero}`}
-      description="Confirmá que el equipo se entregó al cliente. El cierre queda registrado con tu comentario."
+      description={
+        isSinReparar(order)
+          ? 'Confirmá que el equipo se entregó sin reparar. El cierre queda registrado con tu comentario.'
+          : 'Confirmá que el equipo se entregó al cliente. El cierre queda registrado con tu comentario.'
+      }
       icon={<CircleCheckBig className="text-success" aria-hidden="true" />}
       label="Comentario de cierre"
-      placeholder="Ej.: Equipo entregado a Juan Pérez, funcionando correctamente."
+      placeholder={isSinReparar(order) ? 'Ej.: Entregado sin reparar a Juan Pérez, con el informe.' : 'Ej.: Equipo entregado a Juan Pérez, funcionando correctamente.'}
       minLength={MIN_COMENTARIO}
       confirmLabel="Cerrar orden"
       confirmDisabled={!rule.ok}

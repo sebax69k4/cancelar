@@ -15,9 +15,10 @@ import { useUsers } from '@/hooks/useCatalog';
 import { useDebounced } from '@/hooks/useDebounced';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useOrders } from '@/hooks/useOrders';
+import { can } from '@/lib/auth/permissions';
 import { errorMessage } from '@/lib/api/errors';
 import type { OrderFilters } from '@/lib/api/apiClient';
-import { ESTADO_LABEL, PRIORIDAD_LABEL, ROL_LABEL } from '@/lib/domain/labels';
+import { ESTADO_LABEL, PRIORIDAD_LABEL, rolesLabel } from '@/lib/domain/labels';
 import { readStorage, writeStorage } from '@/lib/storage';
 import { ESTADOS, PRIORIDADES, type EstadoOrden, type OrdenResumen, type Prioridad } from '@/types/domain';
 
@@ -120,7 +121,7 @@ function Board() {
             placeholder="Todos"
             value={filters.responsableId ?? ''}
             onChange={(e) => set({ responsableId: e.target.value || undefined })}
-            options={(users.data ?? []).map((u) => ({ value: u.id, label: `${u.nombre} (${ROL_LABEL[u.rol]})` }))}
+            options={(users.data ?? []).map((u) => ({ value: u.id, label: `${u.nombre} (${rolesLabel(u.roles)})` }))}
           />
           <Button
             variant="ghost"
@@ -134,7 +135,7 @@ function Board() {
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
           <p className="text-xs text-muted" aria-live="polite">
             {orders.data ? `${orders.data.length} ${orders.data.length === 1 ? 'orden' : 'órdenes'}` : ''}
-            {user?.rol === 'TECNICO' && ' · como Técnico ves solo las asignadas a vos'}
+            {user && !can(user.roles, 'order.view.all') && ' · como Técnico ves solo las asignadas a vos'}
           </p>
           <div className="w-56">
             <SegmentedControl
@@ -164,7 +165,7 @@ function Board() {
             icon={<SquareKanban aria-hidden="true" />}
             title="Todavía no hay órdenes"
             description={
-              user?.rol === 'TECNICO'
+              user && !can(user.roles, 'order.view.all')
                 ? 'Cuando te asignen una orden va a aparecer en este tablero.'
                 : 'Creá la primera orden de servicio para empezar a usar el tablero.'
             }

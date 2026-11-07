@@ -1,4 +1,7 @@
-import type { EstadoOrden, Impacto, Prioridad, Rol, TipoAccion, TipoEquipo, Urgencia } from '@/types/domain';
+import type {
+  CausaEscalamiento, EstadoEscalamiento, EstadoOrden, Impacto, Prioridad, ResolucionEscalamiento, ResultadoOrden, Rol,
+  TipoAccion, TipoEquipo, Urgencia,
+} from '@/types/domain';
 
 export const ESTADO_LABEL: Record<EstadoOrden, string> = {
   RECIBIDO: 'Recibido',
@@ -26,6 +29,10 @@ export const ROL_LABEL: Record<Rol, string> = {
   TECNICO: 'Técnico',
 };
 
+export function rolesLabel(roles: readonly Rol[]): string {
+  return roles.map((r) => ROL_LABEL[r]).join(' + ');
+}
+
 export const TIPO_EQUIPO_LABEL: Record<TipoEquipo, string> = {
   NOTEBOOK: 'Notebook',
   PC_ESCRITORIO: 'PC de escritorio',
@@ -43,4 +50,37 @@ export const TIPO_ACCION_LABEL: Record<TipoAccion, string> = {
   VALIDACION: 'Validación',
   CIERRE: 'Cerrada',
   ACTUALIZACION: 'Actualización',
+  ESCALADO_TOMADO: 'Escalamiento tomado',
+  ESCALADO_NIVEL: 'Escalamiento subió de nivel',
+  ESCALADO_RESUELTO: 'Escalamiento resuelto',
+};
+
+export const CAUSA_LABEL: Record<CausaEscalamiento, string> = {
+  TECNICA: 'Técnica',
+  REPUESTO: 'Repuesto o proveedor',
+  PRESUPUESTO: 'Presupuesto',
+  RECLAMO_CLIENTE: 'Reclamo del cliente',
+  PLAZO: 'Plazo',
+  CRITICA_24H: 'Crítica sin resolver',
+  BLOQUEO_PROLONGADO: 'Bloqueo prolongado',
+};
+
+export const ESTADO_ESCALAMIENTO_LABEL: Record<EstadoEscalamiento, string> = {
+  ABIERTO: 'Sin tomar',
+  TOMADO: 'Tomado',
+  RESUELTO: 'Resuelto',
+};
+
+export const RESOLUCION_LABEL: Record<ResolucionEscalamiento, string> = {
+  CONTINUAR: 'Continuar',
+  EN_ESPERA: 'En espera',
+  NO_REPARABLE: 'No reparable',
+  RECHAZADO_CLIENTE: 'Rechazado por el cliente',
+};
+
+export const RESULTADO_LABEL: Record<ResultadoOrden, string> = {
+  REPARADO: 'Reparado',
+  NO_REPARABLE: 'No reparable',
+  RECHAZADO_CLIENTE: 'Rechazado por el cliente',
+  ABANDONADO: 'Abandonado',
 };

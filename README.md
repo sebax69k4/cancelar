@@ -88,12 +88,17 @@ Usuarios de prueba en `src/mocks/users.ts`. Matriz de permisos en `src/lib/auth/
 | Cambiar estado | ✔ | ✔ | solo Recibido → Diagnóstico | solo las suyas |
 | Diagnóstico, solución y evidencia | ✔ | ✔ | — | solo las suyas |
 | Cambiar impacto y urgencia | ✔ | ✔ | — | — |
-| Bloquear / Escalar | ✔ | ✔ | — | solo las suyas |
-| Desbloquear, validar, cerrar y reabrir | ✔ | ✔ | — | — |
-| Alertas | ✔ | ✔ | — | solo las suyas |
+| Bloquear | ✔ | ✔ | — | solo las suyas |
+| Escalar | no (último nivel) | a nivel 3 | a nivel 2: reclamo o plazo | a nivel 2: solo las suyas |
+| Atender escalamientos | nivel 2 y 3 | nivel 2 | — | — |
+| Desbloquear, validar y reabrir | ✔ | ✔ | — | — |
+| Cerrar (entregar) | ✔ | ✔ | ✔ (si está validada) | — |
+| Marcar equipo abandonado | ✔ | — | — | — |
+| Alertas | ✔ | ✔ | ✔ | solo las suyas |
+| Configuración (taller, personas, servicios) | ✔ | — | — | — |
 | Reiniciar demo | ✔ | — | — | — |
 
-«Las suyas» = órdenes donde el usuario es técnico asignado o responsable.
+«Las suyas» = órdenes donde el usuario es técnico asignado o responsable. Una persona puede tener varios roles y suma los permisos de cada uno.
 
 ## Reglas del workflow
 
@@ -118,10 +123,10 @@ Todo cambio exige **comentario** (mín. 5 caracteres). Una orden **bloqueada** n
 | En reparación → Pruebas / ← En diagnóstico | — |
 | Pruebas → Listo para retirar | Solución documentada |
 | Pruebas → En reparación (retroceso) | — |
-| Listo para retirar → Cerrado | Solución + ≥ 1 evidencia + validación de supervisor; rol Supervisor/Admin |
+| Listo para retirar → Cerrado | Solución + ≥ 1 evidencia + validación de supervisor, sin escalamiento abierto; rol Recepción, Supervisor o Admin |
 | Cerrado → (Reabrir) Diagnóstico o Reparación | Motivo (mín. 10); rol Supervisor/Admin. Se pierde la validación. |
 
-Acciones especiales: **Bloquear** y **Escalar** (motivo mín. 10), **Desbloquear** (comentario), **Validar** (requiere solución). Cambiar la solución o quitar evidencia invalida la validación. Cerrar limpia el escalado.
+Acciones especiales: **Bloquear** y **Escalar** (motivo mín. 10), **Desbloquear** (comentario), **Validar** (requiere solución). Cambiar la solución o quitar evidencia invalida la validación. No se puede cerrar con un escalamiento abierto. El detalle de niveles, resoluciones («sin reparación») y escalamiento automático está en `backend/README.md`; las reglas, en `src/lib/workflow/escalation.ts`.
 
 ### Alertas (`alerts.ts`)
 
@@ -209,7 +214,7 @@ Los datos son por navegador: otro navegador u otra PC ven el sistema vacío. Var
 
 ## Conectar con el backend NestJS
 
-El backend ya está implementado en `../backend` (NestJS + Prisma + SQLite). Su README tiene la puesta en marcha, los usuarios iniciales, la referencia de la API y la guía para pasar a PostgreSQL.
+El backend ya está implementado en `../backend` (NestJS + Prisma + PostgreSQL). Su README tiene la puesta en marcha (incluida la instalación de PostgreSQL), los usuarios iniciales y la referencia de la API.
 
 La UI nunca llama a `fetch` directamente: todo pasa por la interfaz `ApiClient` (`src/lib/api/apiClient.ts`), con dos implementaciones que se eligen en `src/lib/api/config.ts`:
 
@@ -244,8 +249,9 @@ npm run dev:demo
 
 - **Login**: `/login` pide email y contraseña reales (`POST /auth/login`). La sesión se recupera al cargar cada página con `GET /auth/me` (`src/lib/auth/mockCurrentUser.ts`, misma API en ambos modos). Si el backend responde 401 (sesión vencida), se vuelve al login.
 - **Sin controles de demo**: no hay selector de rol, reloj simulado ni «Reiniciar demo».
+- **Primer uso**: `/registro` y `/configuracion` solo existen acá; en la demo los usuarios son fijos.
 - **Evidencia real**: el archivo se sube como multipart y el nombre en la lista abre el archivo guardado.
-- **Reglas**: el frontend sigue usando `src/lib/workflow/` para explicar qué falta antes de enviar; el backend aplica las mismas reglas (copia en `backend/src/domain/`) y responde 422 con `details`. Si cambiás una regla, cambiala en los dos lados.
+- **Reglas**: el frontend sigue usando `src/lib/workflow/` para explicar qué falta antes de enviar; el backend aplica las mismas reglas (copia en `backend/src/domain/`) y responde 422 con `details`. Si cambiás una regla, cambiala en los dos lados (`transitions.ts`, `escalation.ts`, `setup.ts` y `permissions.ts`).
 
 ### Formato de errores
 

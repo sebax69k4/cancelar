@@ -8,6 +8,8 @@ import { Card, CardHeader } from '@/components/ui/Card';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States';
 import { useAlerts } from '@/hooks/useDashboard';
 import { errorMessage } from '@/lib/api/errors';
+import { CAUSA_LABEL, ESTADO_ESCALAMIENTO_LABEL } from '@/lib/domain/labels';
+import { openEscalation } from '@/lib/workflow/escalation';
 import { cn } from '@/lib/cn';
 import { formatHours } from '@/lib/format';
 import type { OrdenResumen } from '@/types/domain';
@@ -87,6 +89,11 @@ function Content() {
     );
   }
   const { criticas, bloqueadas, escaladas } = alerts.data;
+  const delNivel = (nivel: number) => escaladas.filter((o) => openEscalation(o)?.nivel === nivel);
+  const motivoEscalamiento = (o: OrdenResumen) => {
+    const esc = openEscalation(o);
+    return esc ? `${CAUSA_LABEL[esc.causa]} · ${ESTADO_ESCALAMIENTO_LABEL[esc.estado]}: ${esc.motivo}` : o.motivoEscalado;
+  };
   return (
     <div className="flex flex-col gap-6">
       <AlertSection
@@ -107,11 +114,19 @@ function Content() {
       />
       <AlertSection
         id="escaladas"
-        title="Escaladas"
+        title="Escaladas a nivel 3 (Admin)"
+        icon={<ArrowUpCircle className="text-red-700 dark:text-red-300" aria-hidden="true" />}
+        orders={delNivel(3)}
+        emptyText="Nada escalado a nivel 3"
+        reason={motivoEscalamiento}
+      />
+      <AlertSection
+        id="escaladas-nivel-2"
+        title="Escaladas a nivel 2 (Supervisor)"
         icon={<ArrowUpCircle className="text-orange-700 dark:text-orange-300" aria-hidden="true" />}
-        orders={escaladas}
-        emptyText="No hay órdenes escaladas"
-        reason={(o) => o.motivoEscalado}
+        orders={delNivel(2)}
+        emptyText="Nada escalado a nivel 2"
+        reason={motivoEscalamiento}
       />
     </div>
   );

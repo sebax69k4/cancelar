@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react';
 import { CheckCircle2, CircleDashed } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { closeChecklist } from '@/lib/workflow/transitions';
+import { closeChecklist, type ChecklistItem } from '@/lib/workflow/transitions';
 import type { Orden } from '@/types/domain';
 
 export interface CloseChecklistProps {
   order: Orden;
   /** Acción opcional por ítem (ej. botón «Validar»). */
-  actions?: Partial<Record<'solucion' | 'evidencia' | 'validada', ReactNode>>;
+  actions?: Partial<Record<ChecklistItem['id'], ReactNode>>;
   className?: string;
 }
 

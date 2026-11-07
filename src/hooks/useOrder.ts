@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { apiClient, type EvidenceInput, type UpdateOrderInput } from '@/lib/api/apiClient';
+import { apiClient, type EvidenceInput, type ResolveEscalationInput, type UpdateOrderInput } from '@/lib/api/apiClient';
 import { queryClient, queryKeys } from '@/lib/api/queryClient';
-import type { EstadoOrden } from '@/types/domain';
+import type { CausaEscalamiento, EstadoOrden } from '@/types/domain';
 
 export function useOrder(id: string) {
   return useQuery({
@@ -23,7 +23,17 @@ export function useOrderActions(id: string) {
     }),
     block: useMutation({ mutationFn: (motivo: string) => apiClient.blockOrder(id, motivo), onSuccess: invalidateAll }),
     unblock: useMutation({ mutationFn: (comentario: string) => apiClient.unblockOrder(id, comentario), onSuccess: invalidateAll }),
-    escalate: useMutation({ mutationFn: (motivo: string) => apiClient.escalateOrder(id, motivo), onSuccess: invalidateAll }),
+    escalate: useMutation({
+      mutationFn: (v: { causa: CausaEscalamiento; motivo: string }) => apiClient.escalateOrder(id, v.causa, v.motivo),
+      onSuccess: invalidateAll,
+    }),
+    takeEscalation: useMutation({ mutationFn: () => apiClient.takeEscalation(id), onSuccess: invalidateAll }),
+    raiseEscalation: useMutation({ mutationFn: (motivo: string) => apiClient.raiseEscalation(id, motivo), onSuccess: invalidateAll }),
+    resolveEscalation: useMutation({
+      mutationFn: (input: ResolveEscalationInput) => apiClient.resolveEscalation(id, input),
+      onSuccess: invalidateAll,
+    }),
+    abandon: useMutation({ mutationFn: (motivo: string) => apiClient.abandonOrder(id, motivo), onSuccess: invalidateAll }),
     reopen: useMutation({
       mutationFn: (v: { to: EstadoOrden; motivo: string }) => apiClient.reopenOrder(id, v.to, v.motivo),
       onSuccess: invalidateAll,

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  AlarmClock, ArrowLeft, ArrowUpCircle, BadgeCheck, CalendarClock, CircleCheckBig,
-  ClipboardList, FileSearch, History, Laptop, Lock, LockOpen, Mail, Phone, UserRound, Wrench,
+  AlarmClock, ArrowLeft, ArrowUpCircle, BadgeCheck, CalendarClock, CircleCheckBig, CircleSlash,
+  ClipboardList, FileSearch, History, Laptop, Lock, LockOpen, Mail, PackageX, Phone, UserRound, Wrench,
 } from 'lucide-react';
 import { AlertFlags } from '@/components/domain/AlertFlags';
 import { PriorityBadge } from '@/components/domain/PriorityBadge';
@@ -10,12 +10,15 @@ import { TIPO_EQUIPO_ICON } from '@/components/domain/equipment/meta';
 import { AssignmentCard } from '@/components/domain/order/AssignmentCard';
 import { CloseChecklist } from '@/components/domain/order/CloseChecklist';
 import { EditableText } from '@/components/domain/order/EditableText';
+import { EscalationCard } from '@/components/domain/order/EscalationCard';
 import { EvidenceUploader } from '@/components/domain/order/EvidenceUploader';
 import { Timeline } from '@/components/domain/order/Timeline';
 import { ChangeStatusModal } from '@/components/domain/order/modals/ChangeStatusModal';
 import { CloseOrderModal } from '@/components/domain/order/modals/CloseOrderModal';
+import { EscalateModal } from '@/components/domain/order/modals/EscalateModal';
 import { ReasonModal } from '@/components/domain/order/modals/ReasonModal';
 import { ReopenModal } from '@/components/domain/order/modals/ReopenModal';
+import { ResolveEscalationModal } from '@/components/domain/order/modals/ResolveEscalationModal';
 import { AppShell } from '@/components/layout/AppShell';
 import { Badge } from '@/components/ui/Badge';
 import { Button, LinkButton } from '@/components/ui/Button';
@@ -28,19 +31,22 @@ import { apiClient } from '@/lib/api/apiClient';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import { can } from '@/lib/auth/permissions';
 import { cn } from '@/lib/cn';
-import { ESTADO_LABEL, TIPO_EQUIPO_LABEL } from '@/lib/domain/labels';
+import { ESTADO_LABEL, RESULTADO_LABEL, TIPO_EQUIPO_LABEL } from '@/lib/domain/labels';
 import { formatDate, formatDateTime, formatHours, formatMoney } from '@/lib/format';
 import { notifyError } from '@/lib/notify';
 import { toast } from '@/lib/toast';
+import { ABANDONO_DIAS, canAbandon, canEscalate, openEscalation } from '@/lib/workflow/escalation';
 import {
-  MIN_COMENTARIO, MIN_MOTIVO, NEXT_STATE, canActOnOrder, canValidate, closeChecklist,
+  MIN_COMENTARIO, MIN_MOTIVO, NEXT_STATE, canActOnOrder, canValidate, closeChecklist, isSinReparar,
 } from '@/lib/workflow/transitions';
+import { now } from '@/lib/clock';
 import { NextStepCard } from '@/components/domain/order/NextStepCard';
 import { WorkflowStepper } from '@/components/domain/order/WorkflowStepper';
 import type { OrdenResumen } from '@/types/domain';
 
 type TabId = 'detalle' | 'historial' | 'solucion';
-type ModalId = 'estado' | 'bloquear' | 'desbloquear' | 'escalar' | 'reabrir' | 'cerrar' | 'validar' | null;
+type ModalId =
+  | 'estado' | 'bloquear' | 'desbloquear' | 'escalar' | 'subir' | 'resolver' | 'abandonar' | 'reabrir' | 'cerrar' | 'validar' | null;
 
 function initialTab(): TabId {
   const h = window.location.hash.replace('#', '');
@@ -80,7 +86,7 @@ function SummaryRow({ icon, label, children }: { icon: ReactNode; label: string;
   );
 }
 
-function lastEntry(order: OrdenResumen, tipo: 'BLOQUEO' | 'ESCALADO') {
+function lastEntry(order: OrdenResumen, tipo: 'BLOQUEO') {
   return [...order.historial].reverse().find((h) => h.tipo === tipo);
 }
 
@@ -135,13 +141,14 @@ function Detail({ id }: { id: string }) {
   const closed = order.estado === 'CERRADO';
   const canEdit = !closed && canActOnOrder(user, order, 'edit');
   const showBlock = !closed && !order.bloqueada && canActOnOrder(user, order, 'block');
-  const showUnblock = order.bloqueada && can(user.rol, 'order.unblock');
-  const showEscalate = !closed && !order.escalada && canActOnOrder(user, order, 'escalate');
-  const showClose = order.estado === 'LISTO_PARA_RETIRAR' && can(user.rol, 'order.close');
+  const showUnblock = order.bloqueada && can(user.roles, 'order.unblock');
+  const showEscalate = canEscalate(order, user).ok;
+  const showClose = order.estado === 'LISTO_PARA_RETIRAR' && (can(user.roles, 'order.close') || can(user.roles, 'order.deliver'));
+  const listo = order.historial.findLast((h) => h.estadoNuevo === 'LISTO_PARA_RETIRAR');
+  const showAbandon = canAbandon(order, user, listo ? new Date(listo.fecha).getTime() : null, now()).ok;
   const validateRule = canValidate(order, user);
   const pendingClose = closeChecklist(order).filter((i) => !i.done).length;
   const blockEntry = lastEntry(order, 'BLOQUEO');
-  const escEntry = lastEntry(order, 'ESCALADO');
   const EquipoIcon = TIPO_EQUIPO_ICON[order.equipo.tipo];
 
   /** Ejecuta una mutación con toast de éxito/error y cierra el modal. */
@@ -216,6 +223,11 @@ function Detail({ id }: { id: string }) {
               Escalar
             </Button>
           )}
+          {showAbandon && (
+            <Button variant="outline" leftIcon={<PackageX aria-hidden="true" />} onClick={() => setModal('abandonar')}>
+              Marcar abandonado
+            </Button>
+          )}
         </div>
         <div className="w-full border-t border-border pt-4">
           <WorkflowStepper estado={order.estado} bloqueada={order.bloqueada} />
@@ -245,13 +257,10 @@ function Detail({ id }: { id: string }) {
             Motivo: «{order.motivoBloqueo}». No puede cambiar de estado hasta que se desbloquee.
           </Banner>
         )}
-        {order.escalada && (
-          <Banner
-            tone="orange"
-            icon={<ArrowUpCircle />}
-            title={escEntry ? `Escalada por ${escEntry.usuario.nombre} · ${formatDateTime(escEntry.fecha)}` : 'Orden escalada'}
-          >
-            Motivo: «{order.motivoEscalado}»
+        {order.resultado && order.resultado !== 'REPARADO' && (
+          <Banner tone="amber" icon={<CircleSlash />} title={`Sin reparación · ${RESULTADO_LABEL[order.resultado]}`}>
+            {order.informeNoReparacion && <p className="whitespace-pre-line">{order.informeNoReparacion}</p>}
+            {order.avisoCliente && <p className="mt-1">Aviso al cliente: {order.avisoCliente}</p>}
           </Banner>
         )}
         {order.atrasada && (
@@ -259,6 +268,17 @@ function Detail({ id }: { id: string }) {
             La entrega estimada era el {formatDate(order.fechaEstimada)}.
           </Banner>
         )}
+      </div>
+
+      <div id="seccion-escalamiento" className="mb-6 scroll-mt-24 empty:hidden">
+        <EscalationCard
+          order={order}
+          user={user}
+          busy={actions.takeEscalation.isPending}
+          onTake={() => void run(actions.takeEscalation.mutateAsync(), 'Escalamiento tomado').catch(() => undefined)}
+          onRaise={() => setModal('subir')}
+          onResolve={() => setModal('resolver')}
+        />
       </div>
 
       <div className="mb-6">
@@ -288,7 +308,7 @@ function Detail({ id }: { id: string }) {
                 setScrollTarget({ id: 'seccion-evidencia', n: Date.now() });
                 break;
               case 'validada':
-                if (can(user.rol, 'order.validate') && validateRule.ok) setModal('validar');
+                if (can(user.roles, 'order.validate') && validateRule.ok) setModal('validar');
                 else {
                   setTab('solucion');
                   setScrollTarget({ id: 'seccion-cierre', n: Date.now() });
@@ -297,6 +317,12 @@ function Detail({ id }: { id: string }) {
               case 'desbloqueo':
                 if (showUnblock) setModal('desbloquear');
                 else window.scrollTo({ top: 0, behavior: 'smooth' });
+                break;
+              case 'informe':
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                break;
+              case 'escalamiento':
+                setScrollTarget({ id: 'seccion-escalamiento', n: Date.now() });
                 break;
             }
           }}
@@ -396,7 +422,7 @@ function Detail({ id }: { id: string }) {
                   <CloseChecklist
                     order={order}
                     actions={{
-                      validada: can(user.rol, 'order.validate') ? (
+                      validada: can(user.roles, 'order.validate') ? (
                         <Button
                           size="sm"
                           variant="outline"
@@ -412,7 +438,7 @@ function Detail({ id }: { id: string }) {
                       ),
                     }}
                   />
-                  {!validateRule.ok && can(user.rol, 'order.validate') && !order.validada && !closed && (
+                  {!validateRule.ok && can(user.roles, 'order.validate') && !order.validada && !closed && (
                     <p className="text-xs text-muted">Para validar: {validateRule.missing.join('. ').toLowerCase()}.</p>
                   )}
                   {showClose && (
@@ -472,8 +498,8 @@ function Detail({ id }: { id: string }) {
           <AssignmentCard
             key={`${order.responsableId}-${order.tecnicoId}-${order.prioridad}`}
             order={order}
-            canAssign={can(user.rol, 'order.assign')}
-            canReprioritize={can(user.rol, 'order.edit')}
+            canAssign={can(user.roles, 'order.assign')}
+            canReprioritize={can(user.roles, 'order.edit')}
             busy={actions.update.isPending}
             onSave={(input) => run(actions.update.mutateAsync({ input }), 'Asignación actualizada')}
           />
@@ -510,18 +536,49 @@ function Detail({ id }: { id: string }) {
         confirmLabel="Desbloquear"
         onConfirm={(t) => void run(actions.unblock.mutateAsync(t), `${order.numero} desbloqueada`).catch(() => undefined)}
       />
-      <ReasonModal
+      <EscalateModal
+        order={order}
+        user={user}
         open={modal === 'escalar'}
-        onClose={() => setModal(null)}
         busy={actions.escalate.isPending}
-        title={`Escalar ${order.numero}`}
-        description="Marca la orden para que la revise un nivel superior. Aparece en Alertas."
+        onClose={() => setModal(null)}
+        onConfirm={(v) => void run(actions.escalate.mutateAsync(v), `${order.numero} escalada`).catch(() => undefined)}
+      />
+      <ReasonModal
+        open={modal === 'subir'}
+        onClose={() => setModal(null)}
+        busy={actions.raiseEscalation.isPending}
+        title={`Subir de nivel ${order.numero}`}
+        description="El escalamiento pasa al nivel siguiente y queda sin tomar."
         icon={<ArrowUpCircle className="text-warning" aria-hidden="true" />}
-        label="Motivo del escalado"
-        placeholder="Ej.: Falla intermitente de placa, requiere técnico nivel 2."
+        label="Motivo"
+        placeholder="Ej.: Requiere aprobar un gasto que supera lo autorizado."
         minLength={MIN_MOTIVO}
-        confirmLabel="Escalar"
-        onConfirm={(t) => void run(actions.escalate.mutateAsync(t), `${order.numero} escalada`).catch(() => undefined)}
+        confirmLabel="Subir de nivel"
+        onConfirm={(t) => void run(actions.raiseEscalation.mutateAsync(t), 'Escalamiento subió de nivel').catch(() => undefined)}
+      />
+      {openEscalation(order) && (
+        <ResolveEscalationModal
+          order={order}
+          open={modal === 'resolver'}
+          busy={actions.resolveEscalation.isPending}
+          onClose={() => setModal(null)}
+          onConfirm={(v) => void run(actions.resolveEscalation.mutateAsync(v), 'Escalamiento resuelto').catch(() => undefined)}
+        />
+      )}
+      <ReasonModal
+        open={modal === 'abandonar'}
+        onClose={() => setModal(null)}
+        busy={actions.abandon.isPending}
+        title={`Marcar ${order.numero} como abandonado`}
+        description={`El cliente lleva más de ${ABANDONO_DIAS} días sin retirar el equipo. La orden se cierra como abandonada.`}
+        icon={<PackageX className="text-warning" aria-hidden="true" />}
+        label="Motivo"
+        placeholder="Ej.: Se llamó tres veces al cliente sin respuesta."
+        minLength={MIN_MOTIVO}
+        confirmLabel="Marcar abandonado"
+        confirmVariant="danger"
+        onConfirm={(t) => void run(actions.abandon.mutateAsync(t), `${order.numero} cerrada como abandonada`).catch(() => undefined)}
       />
       <ReasonModal
         open={modal === 'validar'}
@@ -536,10 +593,10 @@ function Detail({ id }: { id: string }) {
         confirmLabel="Validar"
         onConfirm={(t) => void run(actions.validate.mutateAsync(t), `${order.numero} validada`).catch(() => undefined)}
       >
-        {order.solucion && (
+        {(order.solucion ?? order.informeNoReparacion) && (
           <div className="rounded-md bg-surface-2 px-3 py-2 text-sm">
-            <p className="text-xs font-semibold text-muted">Solución documentada</p>
-            <p className="whitespace-pre-line">{order.solucion}</p>
+            <p className="text-xs font-semibold text-muted">{isSinReparar(order) ? 'Informe de no reparación' : 'Solución documentada'}</p>
+            <p className="whitespace-pre-line">{isSinReparar(order) ? order.informeNoReparacion : order.solucion}</p>
           </div>
         )}
       </ReasonModal>

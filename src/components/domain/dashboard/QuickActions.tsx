@@ -27,7 +27,7 @@ export function QuickActions() {
     },
     { label: 'Registrar cliente', desc: 'Alta rápida de cliente', icon: UserPlus, href: '/clientes?nuevo=1', permission: 'client.create' },
   ];
-  const visible = actions.filter((a) => !a.permission || (user && can(user.rol, a.permission)));
+  const visible = actions.filter((a) => !a.permission || (user && can(user.roles, a.permission)));
 
   return (
     <Card>

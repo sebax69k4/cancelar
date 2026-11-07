@@ -9,19 +9,23 @@
 import { getMockCurrentUser } from '@/lib/auth/mockCurrentUser';
 import { can } from '@/lib/auth/permissions';
 import { now, nowIso } from '@/lib/clock';
-import { ESTADO_LABEL } from '@/lib/domain/labels';
+import { ESTADO_LABEL, RESOLUCION_LABEL } from '@/lib/domain/labels';
 import { hoursOpen, isCriticalOverdue, isOpen, isOverdue } from '@/lib/workflow/alerts';
+import {
+  RESOLUCIONES_SIN_REPARACION, autoEscalation, canAbandon, canEscalate, canRaiseEscalation, canResolveEscalation,
+  canTakeEscalation, escalationTarget, openEscalation, sinReparacionMissing, type AutoEscalationInput,
+} from '@/lib/workflow/escalation';
 import { calculatePriority } from '@/lib/workflow/priority';
 import {
-  MIN_COMENTARIO, MIN_MOTIVO, REOPEN_TARGETS, canActOnOrder, canBlock, canEscalate,
+  MIN_COMENTARIO, MIN_MOTIVO, REOPEN_TARGETS, canActOnOrder, canBlock,
   canReopen, canTransition, canUnblock, canValidate, isAssignedTo, type RuleResult,
 } from '@/lib/workflow/transitions';
 import { MOCK_SERVICES } from '@/mocks/catalog';
 import { getDb, resetDb, updateDb, type DbState } from '@/mocks/db';
 import { MOCK_USERS } from '@/mocks/users';
 import type {
-  Cliente, Equipo, EstadoOrden, Evidencia, Historial, Impacto, InformeCritico, Orden,
-  OrdenResumen, Prioridad, Servicio, TipoAccion, TipoEquipo, Urgencia, Usuario,
+  CausaEscalamiento, Cliente, Equipo, Escalamiento, EstadoOrden, Evidencia, Historial, Impacto, InformeCritico, Orden,
+  OrdenResumen, Prioridad, ResolucionEscalamiento, Rol, Servicio, TipoAccion, TipoEquipo, Urgencia, Usuario,
 } from '@/types/domain';
 import { ApiError } from './errors';
 import { API_URL, isMockApi } from './config';
@@ -73,6 +77,15 @@ export interface UpdateOrderInput {
   urgencia?: Urgencia;
 }
 
+export interface ResolveEscalationInput {
+  resolucion: ResolucionEscalamiento;
+  texto: string;
+  /** Reasignar el técnico (solo al continuar). */
+  tecnicoId?: string;
+  /** Constancia de aviso al cliente (obligatoria si se resuelve sin reparación). */
+  avisoCliente?: string;
+}
+
 export interface EvidenceInput {
   nombreArchivo: string;
   tipoMime: string;
@@ -103,6 +116,8 @@ export interface DashboardData {
   totalOrdenes: number;
   /** Para el contador del menú «Alertas». */
   alertasPendientes: number;
+  /** Roles esenciales que nadie activo cubre. */
+  rolesFaltantes: Rol[];
 }
 
 export interface AlertsData {
@@ -111,7 +126,72 @@ export interface AlertsData {
   escaladas: OrdenResumen[];
 }
 
+export interface SetupStatus {
+  cuentaCreada: boolean;
+  configurado: boolean;
+  tallerNombre: string | null;
+}
+
+export interface SetupProgress {
+  taller: { nombre: string; telefono: string | null; direccion: string | null };
+  configurado: boolean;
+  rolesFaltantes: Rol[];
+  serviciosActivos: number;
+}
+
+export interface UsuarioAdmin extends Usuario {
+  activo: boolean;
+}
+
+export interface ServicioAdmin extends Servicio {
+  activo: boolean;
+}
+
+export interface UpdateTallerInput {
+  nombre: string;
+  telefono?: string;
+  direccion?: string;
+}
+
+export interface CreateUserInput {
+  nombre: string;
+  email: string;
+  password: string;
+  roles: Rol[];
+}
+
+export interface UpdateUserInput {
+  nombre?: string;
+  roles?: Rol[];
+  activo?: boolean;
+  password?: string;
+}
+
+export interface CreateServiceInput {
+  nombre: string;
+  descripcion?: string;
+  precioBase: number;
+}
+
+export interface UpdateServiceInput {
+  nombre?: string;
+  precioBase?: number;
+  activo?: boolean;
+}
+
 export interface ApiClient {
+  getSetupStatus(): Promise<SetupStatus>;
+  getSetupProgress(): Promise<SetupProgress>;
+  updateTaller(input: UpdateTallerInput): Promise<SetupProgress>;
+  completeSetup(): Promise<SetupProgress>;
+  getAllUsers(): Promise<UsuarioAdmin[]>;
+  createUser(input: CreateUserInput): Promise<UsuarioAdmin>;
+  updateUser(id: string, input: UpdateUserInput): Promise<UsuarioAdmin>;
+  getAllServices(): Promise<ServicioAdmin[]>;
+  createService(input: CreateServiceInput): Promise<ServicioAdmin>;
+  updateService(id: string, input: UpdateServiceInput): Promise<ServicioAdmin>;
+  changePassword(actual: string, nueva: string): Promise<void>;
+
   getUsers(): Promise<Usuario[]>;
   getServices(): Promise<Servicio[]>;
 
@@ -128,7 +208,11 @@ export interface ApiClient {
   transitionOrder(id: string, to: EstadoOrden, comentario: string): Promise<OrdenResumen>;
   blockOrder(id: string, motivo: string): Promise<OrdenResumen>;
   unblockOrder(id: string, comentario: string): Promise<OrdenResumen>;
-  escalateOrder(id: string, motivo: string): Promise<OrdenResumen>;
+  escalateOrder(id: string, causa: CausaEscalamiento, motivo: string): Promise<OrdenResumen>;
+  takeEscalation(id: string): Promise<OrdenResumen>;
+  raiseEscalation(id: string, motivo: string): Promise<OrdenResumen>;
+  resolveEscalation(id: string, input: ResolveEscalationInput): Promise<OrdenResumen>;
+  abandonOrder(id: string, motivo: string): Promise<OrdenResumen>;
   reopenOrder(id: string, to: EstadoOrden, motivo: string): Promise<OrdenResumen>;
   validateOrder(id: string, comentario: string): Promise<OrdenResumen>;
   addEvidence(id: string, file: EvidenceInput): Promise<OrdenResumen>;
@@ -189,6 +273,9 @@ function newId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
+/** Autor de las acciones automáticas. */
+const SISTEMA: Usuario = { id: 'sistema', nombre: 'Sistema', email: '', roles: [] };
+
 function history(
   order: Orden, user: Usuario, tipo: TipoAccion, comentario: string,
   estadoAnterior: EstadoOrden | null = null, estadoNuevo: EstadoOrden | null = null,
@@ -196,7 +283,7 @@ function history(
   return {
     id: newId('h'),
     ordenId: order.id,
-    usuario: { id: user.id, nombre: user.nombre, rol: user.rol },
+    usuario: { id: user.id, nombre: user.nombre, roles: user.roles },
     fecha: nowIso(),
     tipo,
     estadoAnterior,
@@ -228,7 +315,7 @@ function enrich(db: Readonly<DbState>, o: Orden, nowMs: number): OrdenResumen | 
 function visibleOrders(db: Readonly<DbState>, user: Usuario): OrdenResumen[] {
   const nowMs = now();
   return db.ordenes
-    .filter((o) => user.rol !== 'TECNICO' || isAssignedTo(o, user))
+    .filter((o) => can(user.roles, 'order.view.all') || isAssignedTo(o, user))
     .map((o) => enrich(db, o, nowMs))
     .filter((o): o is OrdenResumen => o !== null);
 }
@@ -249,13 +336,95 @@ function matchesQuery(o: OrdenResumen, q: string): boolean {
 const byNewest = (a: { fechaIngreso: string }, b: { fechaIngreso: string }) =>
   b.fechaIngreso.localeCompare(a.fechaIngreso);
 
+function autoInput(o: Orden): AutoEscalationInput {
+  const ms = (iso: string) => new Date(iso).getTime();
+  const bloqueo = o.historial.findLast((h) => h.tipo === 'BLOQUEO');
+  return {
+    estado: o.estado,
+    prioridad: o.prioridad,
+    fechaIngresoMs: ms(o.fechaIngreso),
+    fechaEstimadaMs: ms(o.fechaEstimada),
+    bloqueadaDesdeMs: o.bloqueada && bloqueo ? ms(bloqueo.fecha) : null,
+    escalamientos: o.escalamientos.map((e) => ({
+      estado: e.estado,
+      nivel: e.nivel,
+      causa: e.causa,
+      creadoEnMs: ms(e.creadoEn),
+      resueltoEnMs: e.resueltoEn ? ms(e.resueltoEn) : null,
+    })),
+  };
+}
+
+/** Equivale a la tarea programada del backend: se corre al leer, para que el reloj simulado la active. */
+function syncAutoEscalations(): void {
+  const nowMs = now();
+  if (!getDb().ordenes.some((o) => autoEscalation(autoInput(o), nowMs))) return;
+  updateDb((d) => {
+    for (const o of d.ordenes) {
+      const action = autoEscalation(autoInput(o), nowMs);
+      if (!action) continue;
+      if (action.accion === 'crear') {
+        o.escalamientos.push(newEscalation(action.nivel, action.causa, action.motivo, null));
+        o.escalada = true;
+        o.motivoEscalado = action.motivo;
+        o.historial.push(history(o, SISTEMA, 'ESCALADO', `Nivel ${action.nivel}: ${action.motivo}`));
+      } else {
+        const esc = openEscalation(o);
+        if (!esc) continue;
+        esc.nivel += 1;
+        esc.estado = 'ABIERTO';
+        esc.tomadoPor = null;
+        esc.tomadoEn = null;
+        o.historial.push(history(o, SISTEMA, 'ESCALADO_NIVEL', `Sube a nivel ${esc.nivel}: ${action.motivo}`));
+      }
+    }
+  });
+}
+
+function newEscalation(nivel: number, causa: CausaEscalamiento, motivo: string, user: Usuario | null): Escalamiento {
+  return {
+    id: newId('esc'),
+    nivel,
+    causa,
+    motivo,
+    automatico: user === null,
+    estado: 'ABIERTO',
+    creadoPor: user ? { id: user.id, nombre: user.nombre } : null,
+    creadoEn: nowIso(),
+    tomadoPor: null,
+    tomadoEn: null,
+    resueltoPor: null,
+    resueltoEn: null,
+    resolucion: null,
+    textoResolucion: null,
+  };
+}
+
 function lastComment(o: Orden): string | null {
   return o.historial.at(-1)?.comentario ?? null;
 }
 
 // ------------------------------------------------------------------ implementación mock
 
+/** La gestión de personas y del taller necesita el backend: la demo usa usuarios fijos. */
+const soloBackend = () => Promise.reject<never>(new ApiError('FORBIDDEN', 'No disponible en la demo'));
+
 class MockApiClient implements ApiClient {
+  getSetupStatus() {
+    return Promise.resolve<SetupStatus>({ cuentaCreada: true, configurado: true, tallerNombre: null });
+  }
+
+  getSetupProgress = soloBackend;
+  updateTaller = soloBackend;
+  completeSetup = soloBackend;
+  getAllUsers = soloBackend;
+  createUser = soloBackend;
+  updateUser = soloBackend;
+  getAllServices = soloBackend;
+  createService = soloBackend;
+  updateService = soloBackend;
+  changePassword = soloBackend;
+
   /** GET /users */
   getUsers() {
     return simulate(() => {
@@ -291,7 +460,7 @@ class MockApiClient implements ApiClient {
   createClient(input: CreateClientInput) {
     return simulate(() => {
       const user = requireUser();
-      if (!can(user.rol, 'client.create')) throw new ApiError('FORBIDDEN', 'Tu rol no puede registrar clientes');
+      if (!can(user.roles, 'client.create')) throw new ApiError('FORBIDDEN', 'Tu rol no puede registrar clientes');
       const nombre = requireText(input.nombre, 2, 'Nombre');
       const telefono = requireText(input.telefono, 6, 'Teléfono');
       const dup = getDb().clientes.find((c) => digits(c.telefono) === digits(telefono));
@@ -336,7 +505,7 @@ class MockApiClient implements ApiClient {
   createEquipment(input: CreateEquipmentInput) {
     return simulate(() => {
       const user = requireUser();
-      if (!can(user.rol, 'equipment.create')) throw new ApiError('FORBIDDEN', 'Tu rol no puede registrar equipos');
+      if (!can(user.roles, 'equipment.create')) throw new ApiError('FORBIDDEN', 'Tu rol no puede registrar equipos');
       const db = getDb();
       if (!db.clientes.some((c) => c.id === input.clienteId)) throw new ApiError('VALIDATION', 'El cliente no existe');
       const numeroSerie = requireText(input.numeroSerie, 3, 'Número de serie').toUpperCase();
@@ -372,6 +541,7 @@ class MockApiClient implements ApiClient {
   getOrders(filters: OrderFilters = {}) {
     return simulate(() => {
       const user = requireUser();
+      syncAutoEscalations();
       return visibleOrders(getDb(), user)
         .filter((o) => !filters.estado || o.estado === filters.estado)
         .filter((o) => !filters.prioridad || o.prioridad === filters.prioridad)
@@ -395,7 +565,7 @@ class MockApiClient implements ApiClient {
   createOrder(input: CreateOrderInput) {
     return simulate(() => {
       const user = requireUser();
-      if (!can(user.rol, 'order.create')) throw new ApiError('FORBIDDEN', 'Tu rol no puede crear órdenes');
+      if (!can(user.roles, 'order.create')) throw new ApiError('FORBIDDEN', 'Tu rol no puede crear órdenes');
       const db = getDb();
       const missing: string[] = [];
       if (!db.clientes.some((c) => c.id === input.clienteId)) missing.push('Falta el cliente');
@@ -404,7 +574,7 @@ class MockApiClient implements ApiClient {
       else if (equipo.clienteId !== input.clienteId) missing.push('El equipo no pertenece al cliente');
       if (!MOCK_SERVICES.some((s) => s.id === input.servicioId)) missing.push('Falta el servicio');
       if (!userById(input.responsableId)) missing.push('Falta el responsable');
-      if (input.tecnicoId && userById(input.tecnicoId)?.rol !== 'TECNICO') missing.push('El técnico asignado no es válido');
+      if (input.tecnicoId && !userById(input.tecnicoId)?.roles.includes('TECNICO')) missing.push('El técnico asignado no es válido');
       if (input.fallaReportada.trim().length < MIN_MOTIVO) missing.push(`Describí la falla (mínimo ${MIN_MOTIVO} caracteres)`);
       if (missing.length) throw new ApiError('VALIDATION', 'No se puede crear la orden', missing);
 
@@ -436,7 +606,11 @@ class MockApiClient implements ApiClient {
           evidencias: [],
           validada: false,
           validadaPorId: null,
+          resultado: null,
+          informeNoReparacion: null,
+          avisoCliente: null,
           historial: [],
+          escalamientos: [],
         };
         orden.historial.push(history(orden, user, 'CREACION', 'Orden creada en recepción', null, 'RECIBIDO'));
         d.ordenes.push(orden);
@@ -456,7 +630,7 @@ class MockApiClient implements ApiClient {
           throw new ApiError('FORBIDDEN', 'No podés editar el diagnóstico ni la solución de esta orden');
         }
         const reprioritizing = input.impacto !== undefined || input.urgencia !== undefined;
-        if (reprioritizing && !can(user.rol, 'order.edit')) {
+        if (reprioritizing && !can(user.roles, 'order.edit')) {
           throw new ApiError('FORBIDDEN', 'Solo un Supervisor o Admin puede cambiar impacto y urgencia');
         }
         const cambios: string[] = [];
@@ -471,9 +645,9 @@ class MockApiClient implements ApiClient {
           cambios.push('solución');
         }
         const reassigning = input.tecnicoId !== undefined || input.responsableId !== undefined;
-        if (reassigning && !can(user.rol, 'order.assign')) throw new ApiError('FORBIDDEN', 'Tu rol no puede reasignar órdenes');
+        if (reassigning && !can(user.roles, 'order.assign')) throw new ApiError('FORBIDDEN', 'Tu rol no puede reasignar órdenes');
         if (input.tecnicoId !== undefined) {
-          if (input.tecnicoId && userById(input.tecnicoId)?.rol !== 'TECNICO') throw new ApiError('VALIDATION', 'Técnico inválido');
+          if (input.tecnicoId && !userById(input.tecnicoId)?.roles.includes('TECNICO')) throw new ApiError('VALIDATION', 'Técnico inválido');
           if (!input.tecnicoId && o.estado !== 'RECIBIDO') {
             throw new ApiError('WORKFLOW_RULE', 'No se puede quitar el técnico', [
               'La orden ya está en curso: asigná otro técnico en lugar de dejarla sin asignar',
@@ -509,7 +683,7 @@ class MockApiClient implements ApiClient {
         o.estado = to;
         if (to === 'CERRADO') {
           o.fechaCierre = nowIso();
-          o.escalada = false;
+          o.resultado ??= 'REPARADO';
         }
         o.historial.push(history(o, user, to === 'CERRADO' ? 'CIERRE' : 'TRANSICION', text, prev, to));
       });
@@ -545,15 +719,111 @@ class MockApiClient implements ApiClient {
   }
 
   /** POST /orders/:id/escalate */
-  escalateOrder(id: string, motivo: string) {
+  escalateOrder(id: string, causa: CausaEscalamiento, motivo: string) {
     return simulate(() => {
       const user = requireUser();
       const text = requireText(motivo, MIN_MOTIVO, 'Motivo');
       return this.mutate(id, (o) => {
-        enforce(canEscalate(o, user), 'No se puede escalar la orden');
+        enforce(canEscalate(o, user, causa), 'No se puede escalar la orden');
+        const nivel = escalationTarget(o, user) ?? 2;
+        o.escalamientos.push(newEscalation(nivel, causa, text, user));
         o.escalada = true;
         o.motivoEscalado = text;
-        o.historial.push(history(o, user, 'ESCALADO', text));
+        o.historial.push(history(o, user, 'ESCALADO', `Nivel ${nivel}: ${text}`));
+      });
+    });
+  }
+
+  /** POST /orders/:id/escalation/take */
+  takeEscalation(id: string) {
+    return simulate(() => {
+      const user = requireUser();
+      return this.mutate(id, (o) => {
+        enforce(canTakeEscalation(o, user), 'No se puede tomar el escalamiento');
+        const esc = openEscalation(o);
+        if (!esc) return;
+        esc.estado = 'TOMADO';
+        esc.tomadoPor = { id: user.id, nombre: user.nombre };
+        esc.tomadoEn = nowIso();
+        o.historial.push(history(o, user, 'ESCALADO_TOMADO', `Tomado por ${user.nombre}`));
+      });
+    });
+  }
+
+  /** POST /orders/:id/escalation/raise */
+  raiseEscalation(id: string, motivo: string) {
+    return simulate(() => {
+      const user = requireUser();
+      const text = requireText(motivo, MIN_MOTIVO, 'Motivo');
+      return this.mutate(id, (o) => {
+        enforce(canRaiseEscalation(o, user), 'No se puede subir de nivel');
+        const esc = openEscalation(o);
+        if (!esc) return;
+        esc.nivel += 1;
+        esc.estado = 'ABIERTO';
+        esc.tomadoPor = null;
+        esc.tomadoEn = null;
+        o.historial.push(history(o, user, 'ESCALADO_NIVEL', `Sube a nivel ${esc.nivel}: ${text}`));
+      });
+    });
+  }
+
+  /** POST /orders/:id/escalation/resolve */
+  resolveEscalation(id: string, input: ResolveEscalationInput) {
+    return simulate(() => {
+      const user = requireUser();
+      const text = requireText(input.texto, MIN_MOTIVO, 'Detalle');
+      return this.mutate(id, (o) => {
+        enforce(canResolveEscalation(o, user), 'No se puede resolver el escalamiento');
+        const esc = openEscalation(o);
+        if (!esc) return;
+        const prev = o.estado;
+        const sinReparar = RESOLUCIONES_SIN_REPARACION.includes(input.resolucion);
+        if (sinReparar) {
+          const missing = sinReparacionMissing(o, text, input.avisoCliente);
+          if (missing.length) throw new ApiError('WORKFLOW_RULE', 'No se puede cerrar sin reparación', missing);
+          o.estado = 'LISTO_PARA_RETIRAR';
+          o.resultado = input.resolucion === 'NO_REPARABLE' ? 'NO_REPARABLE' : 'RECHAZADO_CLIENTE';
+          o.informeNoReparacion = text;
+          o.avisoCliente = input.avisoCliente?.trim() ?? null;
+          o.bloqueada = false;
+          o.motivoBloqueo = null;
+          o.validada = true;
+          o.validadaPorId = user.id;
+        } else if (input.resolucion === 'EN_ESPERA') {
+          if (!o.bloqueada) o.historial.push(history(o, user, 'BLOQUEO', text));
+          o.bloqueada = true;
+          o.motivoBloqueo = text;
+        } else if (input.tecnicoId) {
+          if (!userById(input.tecnicoId)?.roles.includes('TECNICO')) throw new ApiError('VALIDATION', 'Técnico inválido');
+          o.tecnicoId = input.tecnicoId;
+        }
+        o.escalada = false;
+        o.motivoEscalado = null;
+        esc.estado = 'RESUELTO';
+        esc.resolucion = input.resolucion;
+        esc.textoResolucion = text;
+        esc.resueltoPor = { id: user.id, nombre: user.nombre };
+        esc.resueltoEn = nowIso();
+        const comentario = `${RESOLUCION_LABEL[input.resolucion]}: ${text}`;
+        o.historial.push(history(o, user, 'ESCALADO_RESUELTO', comentario, sinReparar ? prev : null, sinReparar ? o.estado : null));
+      });
+    });
+  }
+
+  /** POST /orders/:id/abandon */
+  abandonOrder(id: string, motivo: string) {
+    return simulate(() => {
+      const user = requireUser();
+      const text = requireText(motivo, MIN_MOTIVO, 'Motivo');
+      return this.mutate(id, (o) => {
+        const listo = o.historial.findLast((h) => h.estadoNuevo === 'LISTO_PARA_RETIRAR');
+        enforce(canAbandon(o, user, listo ? new Date(listo.fecha).getTime() : null, now()), 'No se puede marcar como abandonado');
+        const prev = o.estado;
+        o.estado = 'CERRADO';
+        o.fechaCierre = nowIso();
+        o.resultado = 'ABANDONADO';
+        o.historial.push(history(o, user, 'CIERRE', `Equipo abandonado: ${text}`, prev, 'CERRADO'));
       });
     });
   }
@@ -571,6 +841,9 @@ class MockApiClient implements ApiClient {
         o.fechaCierre = null;
         o.validada = false;
         o.validadaPorId = null;
+        o.resultado = null;
+        o.informeNoReparacion = null;
+        o.avisoCliente = null;
         o.historial.push(history(o, user, 'REAPERTURA', text, prev, to));
       });
     });
@@ -636,6 +909,7 @@ class MockApiClient implements ApiClient {
   getDashboard() {
     return simulate((): DashboardData => {
       const user = requireUser();
+      syncAutoEscalations();
       const db = getDb();
       const orders = visibleOrders(db, user);
       const open = orders.filter(isOpen);
@@ -654,6 +928,7 @@ class MockApiClient implements ApiClient {
         recientes: [...orders].sort(byNewest).slice(0, 8),
         totalOrdenes: orders.length,
         alertasPendientes: open.filter((o) => o.prioridad === 'CRITICA' || o.bloqueada || o.escalada).length,
+        rolesFaltantes: [],
       };
     });
   }
@@ -662,6 +937,7 @@ class MockApiClient implements ApiClient {
   getAlerts() {
     return simulate((): AlertsData => {
       const user = requireUser();
+      syncAutoEscalations();
       const open = visibleOrders(getDb(), user).filter(isOpen);
       const oldest = (a: OrdenResumen, b: OrdenResumen) => b.horasAbierta - a.horasAbierta;
       return {
@@ -685,7 +961,7 @@ class MockApiClient implements ApiClient {
   resetDemo() {
     return simulate(() => {
       const user = requireUser();
-      if (!can(user.rol, 'demo.reset')) throw new ApiError('FORBIDDEN', 'Solo Admin puede reiniciar la demo');
+      if (!can(user.roles, 'demo.reset')) throw new ApiError('FORBIDDEN', 'Solo Admin puede reiniciar la demo');
       resetDb();
     });
   }
@@ -722,7 +998,7 @@ class MockApiClient implements ApiClient {
     const db = getDb();
     const o = db.ordenes.find((x) => x.id === id);
     if (!o) throw new ApiError('NOT_FOUND', 'La orden no existe');
-    if (user.rol === 'TECNICO' && !isAssignedTo(o, user)) throw new ApiError('FORBIDDEN', 'Esta orden no está asignada a vos');
+    if (!can(user.roles, 'order.view.all') && !isAssignedTo(o, user)) throw new ApiError('FORBIDDEN', 'Esta orden no está asignada a vos');
     return this.toResumen(db, o);
   }
 

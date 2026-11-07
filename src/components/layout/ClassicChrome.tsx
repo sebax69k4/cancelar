@@ -4,7 +4,7 @@ import { useClockOffset } from '@/hooks/useClock';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { isMockApi } from '@/lib/api/apiClient';
 import { now } from '@/lib/clock';
-import { ROL_LABEL } from '@/lib/domain/labels';
+import { rolesLabel } from '@/lib/domain/labels';
 
 /** Barra de título de la ventana principal (solo estilo clásico). */
 export function WindowTitleBar({ title }: { title: string }) {
@@ -43,7 +43,7 @@ export function StatusBar() {
         <span className="ui-status-cell px-2">Listo.</span>
         {user && (
           <span className="ui-status-cell hidden truncate px-2 sm:inline">
-            Usuario: {user.nombre} ({ROL_LABEL[user.rol]})
+            Usuario: {user.nombre} ({rolesLabel(user.roles)})
           </span>
         )}
         <span className="ui-status-cell hidden px-2 md:inline">

@@ -1,11 +1,11 @@
 import {
-  ArrowRight, ArrowRightLeft, ArrowUpCircle, BadgeCheck, CircleCheckBig, FilePlus, Lock, LockOpen,
+  ArrowRight, ArrowRightLeft, ArrowUpCircle, BadgeCheck, CircleCheckBig, FilePlus, Hand, Lock, LockOpen,
   PencilLine, RotateCcw, type LucideIcon,
 } from 'lucide-react';
 import { StatusBadge } from '@/components/domain/StatusBadge';
 import { EmptyState } from '@/components/ui/States';
 import { cn } from '@/lib/cn';
-import { ROL_LABEL, TIPO_ACCION_LABEL } from '@/lib/domain/labels';
+import { rolesLabel, TIPO_ACCION_LABEL } from '@/lib/domain/labels';
 import { formatDateTime } from '@/lib/format';
 import type { Historial, TipoAccion } from '@/types/domain';
 
@@ -19,6 +19,9 @@ const META: Record<TipoAccion, { icon: LucideIcon; className: string }> = {
   VALIDACION: { icon: BadgeCheck, className: 'bg-green-50 text-green-700 dark:bg-green-400/15 dark:text-green-200' },
   CIERRE: { icon: CircleCheckBig, className: 'bg-green-50 text-green-700 dark:bg-green-400/15 dark:text-green-200' },
   ACTUALIZACION: { icon: PencilLine, className: 'bg-gray-100 text-gray-700 dark:bg-gray-400/15 dark:text-gray-300' },
+  ESCALADO_TOMADO: { icon: Hand, className: 'bg-orange-50 text-orange-700 dark:bg-orange-400/15 dark:text-orange-200' },
+  ESCALADO_NIVEL: { icon: ArrowUpCircle, className: 'bg-red-50 text-red-700 dark:bg-red-400/15 dark:text-red-200' },
+  ESCALADO_RESUELTO: { icon: CircleCheckBig, className: 'bg-teal-50 text-teal-700 dark:bg-teal-400/15 dark:text-teal-200' },
 };
 
 /** Línea de tiempo del historial (más reciente primero). */
@@ -49,7 +52,7 @@ export function Timeline({ items }: { items: readonly Historial[] }) {
                 {!h.estadoAnterior && h.estadoNuevo && <StatusBadge estado={h.estadoNuevo} size="sm" />}
               </div>
               <p className="mt-0.5 text-xs text-muted">
-                {h.usuario.nombre} ({ROL_LABEL[h.usuario.rol]}) · <time dateTime={h.fecha}>{formatDateTime(h.fecha)}</time>
+                {h.usuario.id === 'sistema' ? 'Automático' : `${h.usuario.nombre} (${rolesLabel(h.usuario.roles)})`} · <time dateTime={h.fecha}>{formatDateTime(h.fecha)}</time>
               </p>
               {h.comentario && (
                 <p className="mt-1.5 rounded-md bg-surface-2 px-3 py-2 text-sm whitespace-pre-line">{h.comentario}</p>

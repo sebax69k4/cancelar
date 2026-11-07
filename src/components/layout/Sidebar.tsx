@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Cpu, Plus, X } from 'lucide-react';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { useCurrentUser, usePermission } from '@/hooks/useCurrentUser';
+import { isMockApi } from '@/lib/api/config';
 import { can } from '@/lib/auth/permissions';
 import { cn } from '@/lib/cn';
 import { DemoPanel } from './DemoPanel';
@@ -53,7 +54,7 @@ function NewOrderButton() {
 
 function NavList({ currentPath, counts }: Pick<SidebarProps, 'currentPath' | 'counts'>) {
   const user = useCurrentUser();
-  const items = NAV_ITEMS.filter((i) => user && can(user.rol, i.permission));
+  const items = NAV_ITEMS.filter((i) => user && can(user.roles, i.permission) && !(i.backendOnly && isMockApi));
   const groups = (Object.keys(NAV_GROUP_LABEL) as NavGroup[])
     .map((g) => ({ g, items: items.filter((i) => i.group === g) }))
     .filter((x) => x.items.length > 0);

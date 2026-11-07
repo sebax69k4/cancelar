@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowRight, CheckCircle2, ClipboardCheck, Lock, PackageCheck, Phone, UserX, Wrench, CalendarClock, type LucideIcon } from 'lucide-react';
+import { ArrowRight, ArrowUpCircle, CheckCircle2, ClipboardCheck, Lock, PackageCheck, Phone, UserX, Wrench, CalendarClock, type LucideIcon } from 'lucide-react';
 import { AlertFlags } from '@/components/domain/AlertFlags';
 import { PriorityBadge } from '@/components/domain/PriorityBadge';
 import { StatusBadge } from '@/components/domain/StatusBadge';
@@ -7,9 +7,11 @@ import { Card, CardHeader } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/States';
 import { useOrders } from '@/hooks/useOrders';
 import { cn } from '@/lib/cn';
+import { CAUSA_LABEL, ESTADO_ESCALAMIENTO_LABEL } from '@/lib/domain/labels';
 import { formatDate } from '@/lib/format';
+import { actorLevel, openEscalation } from '@/lib/workflow/escalation';
 import { NEXT_STATE, stepRequirements } from '@/lib/workflow/transitions';
-import type { OrdenResumen, Prioridad, Usuario } from '@/types/domain';
+import type { OrdenResumen, Prioridad, Rol, Usuario } from '@/types/domain';
 
 const PRIO_RANK: Record<Prioridad, number> = { CRITICA: 0, ALTA: 1, MEDIA: 2, BAJA: 3 };
 const urgentFirst = (a: OrdenResumen, b: OrdenResumen) =>
@@ -36,7 +38,13 @@ interface Queue {
   href?: string;
 }
 
+/** Supervisor y Admin tienen sus colas; quien combina otros roles ve las de cada uno. */
 function queuesFor(user: Usuario, all: OrdenResumen[]): Queue[] {
+  if (actorLevel(user) >= 2) return queuesForRole('SUPERVISOR', user, all);
+  return user.roles.flatMap((r) => queuesForRole(r, user, all));
+}
+
+function queuesForRole(rol: Rol, user: Usuario, all: OrdenResumen[]): Queue[] {
   const open = all.filter((o) => o.estado !== 'CERRADO');
   const sinTecnico: Queue = {
     id: 'sin-tecnico',
@@ -56,7 +64,7 @@ function queuesFor(user: Usuario, all: OrdenResumen[]): Queue[] {
     href: '/alertas',
   };
 
-  switch (user.rol) {
+  switch (rol) {
     case 'TECNICO': {
       const mias = open.filter((o) => o.tecnicoId === user.id || o.responsableId === user.id);
       return [
@@ -101,10 +109,26 @@ function queuesFor(user: Usuario, all: OrdenResumen[]): Queue[] {
     default:
       return [
         {
+          id: 'escalamientos',
+          title: 'Escalamientos para mí',
+          icon: ArrowUpCircle,
+          // Admin ve todos; el Supervisor, los de su nivel. Los más viejos primero
+          orders: open
+            .filter((o) => (openEscalation(o)?.nivel ?? 99) <= actorLevel(user))
+            .sort((a, b) => (openEscalation(a)?.creadoEn ?? '').localeCompare(openEscalation(b)?.creadoEn ?? '')),
+          detail: (o) => {
+            const esc = openEscalation(o);
+            return esc ? `Nivel ${esc.nivel} · ${CAUSA_LABEL[esc.causa]} · ${ESTADO_ESCALAMIENTO_LABEL[esc.estado]}: ${esc.motivo}` : null;
+          },
+          empty: 'Ningún escalamiento pendiente',
+          href: '/alertas#escaladas',
+        },
+        {
           id: 'validar',
           title: 'Esperan tu validación',
           icon: ClipboardCheck,
           orders: open
+            .filter((o) => o.estado === 'PRUEBAS' || o.estado === 'LISTO_PARA_RETIRAR')
             .filter((o) => !o.validada && Boolean(o.solucion?.trim()) && o.evidencias.length > 0)
             .sort(urgentFirst),
           detail: (o) => `Solución: ${o.solucion ?? ''}`,
@@ -119,7 +143,15 @@ function queuesFor(user: Usuario, all: OrdenResumen[]): Queue[] {
           empty: 'Nada para cerrar',
           href: '/ordenes?estado=LISTO_PARA_RETIRAR',
         },
-        trabadas,
+        {
+          id: 'bloqueadas',
+          title: 'Bloqueadas: desbloquear',
+          icon: Lock,
+          orders: open.filter((o) => o.bloqueada).sort(urgentFirst),
+          detail: (o) => `Motivo: ${o.motivoBloqueo ?? ''}`,
+          empty: 'Nada bloqueado',
+          href: '/alertas#bloqueadas',
+        },
         sinTecnico,
       ];
   }

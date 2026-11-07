@@ -1,4 +1,4 @@
-import { Bell, LayoutDashboard, Laptop, SquareKanban, Users, type LucideIcon } from 'lucide-react';
+import { Bell, LayoutDashboard, Laptop, Settings, SquareKanban, Users, type LucideIcon } from 'lucide-react';
 import type { Permission } from '@/lib/auth/permissions';
 
 export type NavGroup = 'operacion' | 'registros';
@@ -9,6 +9,8 @@ export interface NavItem {
   icon: LucideIcon;
   permission: Permission;
   group: NavGroup;
+  /** Solo con backend: en la demo los usuarios son fijos. */
+  backendOnly?: boolean;
 }
 
 export const NAV_GROUP_LABEL: Record<NavGroup, string> = {
@@ -22,6 +24,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/alertas', label: 'Alertas', icon: Bell, permission: 'nav.alertas', group: 'operacion' },
   { href: '/clientes', label: 'Clientes', icon: Users, permission: 'nav.clientes', group: 'registros' },
   { href: '/equipos', label: 'Equipos', icon: Laptop, permission: 'nav.equipos', group: 'registros' },
+  { href: '/configuracion', label: 'Configuración', icon: Settings, permission: 'users.manage', group: 'registros', backendOnly: true },
 ];
 
 export function isActive(currentPath: string, href: string): boolean {

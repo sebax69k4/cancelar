@@ -9,8 +9,10 @@ import { prefetchRoute } from '@/lib/api/prefetch';
 import { loadSession } from '@/lib/auth/mockCurrentUser';
 import { can } from '@/lib/auth/permissions';
 import { getRoute, isAppRoute, navigate, setRouterMounted, subscribeRoute, type RouteState } from '@/lib/router';
+import AccountPage from './AccountPage';
 import AlertsPage from './AlertsPage';
 import ClientsPage from './ClientsPage';
+import ConfigurationPage from './ConfigurationPage';
 import DashboardPage from './DashboardPage';
 import DesignSystemPage from './DesignSystemPage';
 import EquipmentPage from './EquipmentPage';
@@ -38,6 +40,10 @@ function resolve(route: RouteState): Resolved | null {
       return { title: 'Equipos', element: <EquipmentPage /> };
     case '/alertas':
       return { title: 'Alertas', element: <AlertsPage /> };
+    case '/configuracion':
+      return { title: 'Configuración', element: <ConfigurationPage /> };
+    case '/cuenta':
+      return { title: 'Mi cuenta', element: <AccountPage /> };
     case '/design':
       return { title: 'Sistema de diseño', element: <DesignSystemPage /> };
     default: {
@@ -73,7 +79,7 @@ export default function App() {
     const idle = window.setTimeout(() => {
       void loadSession().then((user) => {
         if (!user) return;
-        for (const item of NAV_ITEMS) if (can(user.rol, item.permission)) prefetchRoute(item.href);
+        for (const item of NAV_ITEMS) if (can(user.roles, item.permission)) prefetchRoute(item.href);
       });
     }, 1200);
     return () => window.clearTimeout(idle);

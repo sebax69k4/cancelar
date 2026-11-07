@@ -25,7 +25,7 @@ import { useCreateOrder } from '@/hooks/useOrders';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import { now } from '@/lib/clock';
 import { cn } from '@/lib/cn';
-import { IMPACTO_LABEL, ROL_LABEL, TIPO_EQUIPO_LABEL, URGENCIA_LABEL } from '@/lib/domain/labels';
+import { IMPACTO_LABEL, rolesLabel, TIPO_EQUIPO_LABEL, URGENCIA_LABEL } from '@/lib/domain/labels';
 import { formatMoney } from '@/lib/format';
 import { navigate } from '@/lib/router';
 import { toast } from '@/lib/toast';
@@ -153,7 +153,7 @@ function NewOrderForm() {
     );
   }
 
-  const tecnicos = (users.data ?? []).filter((u) => u.rol === 'TECNICO');
+  const tecnicos = (users.data ?? []).filter((u) => u.roles.includes('TECNICO'));
   // Al cambiar de cliente, la consulta muestra un instante los equipos del anterior (placeholder):
   // filtrar por dueño evita elegir un equipo de otro cliente
   const clientEquipment = (equipment.data ?? []).filter((e) => e.clienteId === cliente?.id);
@@ -280,7 +280,7 @@ function NewOrderForm() {
                 label="Responsable"
                 required
                 placeholder="Elegí responsable"
-                options={(users.data ?? []).map((u) => ({ value: u.id, label: `${u.nombre} (${ROL_LABEL[u.rol]})` }))}
+                options={(users.data ?? []).map((u) => ({ value: u.id, label: `${u.nombre} (${rolesLabel(u.roles)})` }))}
                 error={errors.responsableId?.message}
                 {...register('responsableId')}
               />

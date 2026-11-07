@@ -9,7 +9,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Select } from '@/components/ui/Select';
 import { useUsers } from '@/hooks/useCatalog';
 import type { UpdateOrderInput } from '@/lib/api/apiClient';
-import { IMPACTO_LABEL, ROL_LABEL, URGENCIA_LABEL } from '@/lib/domain/labels';
+import { IMPACTO_LABEL, rolesLabel, URGENCIA_LABEL } from '@/lib/domain/labels';
 import { calculatePriority } from '@/lib/workflow/priority';
 import { NIVELES_IMPACTO, NIVELES_URGENCIA, type Impacto, type OrdenResumen, type Urgencia } from '@/types/domain';
 
@@ -102,7 +102,7 @@ export function AssignmentCard({ order, canAssign, canReprioritize, busy, onSave
                   required
                   value={responsableId}
                   onChange={(e) => setResponsableId(e.target.value)}
-                  options={(users.data ?? []).map((u) => ({ value: u.id, label: `${u.nombre} (${ROL_LABEL[u.rol]})` }))}
+                  options={(users.data ?? []).map((u) => ({ value: u.id, label: `${u.nombre} (${rolesLabel(u.roles)})` }))}
                 />
                 <Select
                   id="as-tec"
@@ -112,7 +112,7 @@ export function AssignmentCard({ order, canAssign, canReprioritize, busy, onSave
                   hint={order.estado !== 'RECIBIDO' ? 'En curso: se puede cambiar de técnico, no quitarlo.' : undefined}
                   value={tecnicoId}
                   onChange={(e) => setTecnicoId(e.target.value)}
-                  options={(users.data ?? []).filter((u) => u.rol === 'TECNICO').map((u) => ({ value: u.id, label: u.nombre }))}
+                  options={(users.data ?? []).filter((u) => u.roles.includes('TECNICO')).map((u) => ({ value: u.id, label: u.nombre }))}
                 />
               </div>
             )}

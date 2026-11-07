@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { NoAccess } from '@/components/auth/PermissionGuard';
-import { ErrorState } from '@/components/ui/States';
+import { EmptyState, ErrorState } from '@/components/ui/States';
 import { Toaster } from '@/components/ui/Toast';
 import { useCurrentUser, useSessionStatus } from '@/hooks/useCurrentUser';
 import { loadSession, retrySession } from '@/lib/auth/mockCurrentUser';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useSetupStatus } from '@/hooks/useSetup';
 import { queryClient } from '@/lib/api/queryClient';
 import { can, type Permission } from '@/lib/auth/permissions';
+import { navigate } from '@/lib/router';
 import { StatusBar, WindowTitleBar } from './ClassicChrome';
 import { RoleSwitcher } from './RoleSwitcher';
 import { ShellSkeleton } from './ShellSkeleton';
@@ -41,6 +43,14 @@ function ShellInner({ currentPath, permission, title, description, actions, cust
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   // Contadores del menú (órdenes activas y alertas)
   const dashboard = useDashboard({ enabled: user !== null });
+  const setup = useSetupStatus({ enabled: user !== null });
+  const pendingSetup = setup.data?.configurado === false;
+  const isAdmin = user !== null && can(user.roles, 'users.manage');
+
+  // Hasta terminar la configuración inicial, el Admin solo puede estar en esa pantalla
+  useEffect(() => {
+    if (pendingSetup && isAdmin && currentPath !== '/configuracion') navigate('/configuracion', { replace: true });
+  }, [pendingSetup, isAdmin, currentPath]);
 
   // Modo backend: recupera la sesión (cookie) desde /auth/me
   useEffect(() => {
@@ -68,7 +78,7 @@ function ShellInner({ currentPath, permission, title, description, actions, cust
   }
   if (!user) return <ShellSkeleton label="Redirigiendo al inicio de sesión…" />;
 
-  const allowed = !permission || can(user.rol, permission);
+  const allowed = !permission || can(user.roles, permission);
   const counts = {
     '/ordenes': dashboard.data?.metrics.activas ?? 0,
     '/alertas': dashboard.data?.alertasPendientes ?? 0,
@@ -94,7 +104,9 @@ function ShellInner({ currentPath, permission, title, description, actions, cust
             <div className="mb-4 sm:hidden">
               <RoleSwitcher />
             </div>
-            {allowed ? (
+            {pendingSetup && !isAdmin ? (
+              <EmptyState title="El taller se está configurando" description="El Admin todavía no terminó la configuración inicial. Vas a poder entrar cuando la complete." />
+            ) : allowed ? (
               <>
                 {!customHeader && (
                   <div className="mb-6 flex flex-wrap items-end justify-between gap-4 classic:mb-4 classic:border-b classic:border-border-strong classic:pb-3">

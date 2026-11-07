@@ -39,13 +39,28 @@ export type TipoAccion =
   | 'REAPERTURA'
   | 'VALIDACION'
   | 'CIERRE'
-  | 'ACTUALIZACION';
+  | 'ACTUALIZACION'
+  | 'ESCALADO_TOMADO'
+  | 'ESCALADO_NIVEL'
+  | 'ESCALADO_RESUELTO';
+
+export const CAUSAS_ESCALAMIENTO = [
+  'TECNICA', 'REPUESTO', 'PRESUPUESTO', 'RECLAMO_CLIENTE', 'PLAZO', 'CRITICA_24H', 'BLOQUEO_PROLONGADO',
+] as const;
+export type CausaEscalamiento = (typeof CAUSAS_ESCALAMIENTO)[number];
+
+export type EstadoEscalamiento = 'ABIERTO' | 'TOMADO' | 'RESUELTO';
+
+export const RESOLUCIONES = ['CONTINUAR', 'EN_ESPERA', 'NO_REPARABLE', 'RECHAZADO_CLIENTE'] as const;
+export type ResolucionEscalamiento = (typeof RESOLUCIONES)[number];
+
+export type ResultadoOrden = 'REPARADO' | 'NO_REPARABLE' | 'RECHAZADO_CLIENTE' | 'ABANDONADO';
 
 export interface Usuario {
   id: string;
   nombre: string;
   email: string;
-  rol: Rol;
+  roles: Rol[];
 }
 
 export interface Cliente {
@@ -87,12 +102,32 @@ export interface Evidencia {
 export interface Historial {
   id: string;
   ordenId: string;
-  usuario: Pick<Usuario, 'id' | 'nombre' | 'rol'>;
+  usuario: Pick<Usuario, 'id' | 'nombre' | 'roles'>;
   fecha: ISODate;
   tipo: TipoAccion;
   estadoAnterior: EstadoOrden | null;
   estadoNuevo: EstadoOrden | null;
   comentario: string;
+}
+
+type Persona = Pick<Usuario, 'id' | 'nombre'>;
+
+export interface Escalamiento {
+  id: string;
+  /** 2 = Supervisor, 3 = Admin */
+  nivel: number;
+  causa: CausaEscalamiento;
+  motivo: string;
+  automatico: boolean;
+  estado: EstadoEscalamiento;
+  creadoPor: Persona | null;
+  creadoEn: ISODate;
+  tomadoPor: Persona | null;
+  tomadoEn: ISODate | null;
+  resueltoPor: Persona | null;
+  resueltoEn: ISODate | null;
+  resolucion: ResolucionEscalamiento | null;
+  textoResolucion: string | null;
 }
 
 export interface Orden {
@@ -120,7 +155,11 @@ export interface Orden {
   evidencias: Evidencia[];
   validada: boolean;
   validadaPorId: string | null;
+  resultado: ResultadoOrden | null;
+  informeNoReparacion: string | null;
+  avisoCliente: string | null;
   historial: Historial[];
+  escalamientos: Escalamiento[];
 }
 
 export interface InformeCritico {

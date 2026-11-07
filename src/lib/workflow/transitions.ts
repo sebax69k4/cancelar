@@ -45,15 +45,22 @@ export type OrderAction = 'transition' | 'block' | 'escalate' | 'edit';
 
 /** Permiso del usuario sobre una orden concreta (considera permisos ".own"). */
 export function canActOnOrder(user: Usuario, order: Orden, action: OrderAction): boolean {
-  if (can(user.rol, `order.${action}`)) return true;
-  if (can(user.rol, `order.${action}.own`) && isAssignedTo(order, user)) return true;
+  if (can(user.roles, `order.${action}`)) return true;
+  if (can(user.roles, `order.${action}.own`) && isAssignedTo(order, user)) return true;
   return false;
 }
 
 // ---------------------------------------------------------------- cierre
 
+/** La orden se resolvió sin reparar (no reparable o rechazada por el cliente). */
+export function isSinReparar(order: Pick<Orden, 'resultado'>): boolean {
+  return order.resultado === 'NO_REPARABLE' || order.resultado === 'RECHAZADO_CLIENTE';
+}
+
+const hasOpenEscalation = (order: Orden) => order.escalamientos.some((e) => e.estado !== 'RESUELTO');
+
 export interface ChecklistItem {
-  id: 'solucion' | 'evidencia' | 'validada';
+  id: 'solucion' | 'informe' | 'evidencia' | 'validada';
   label: string;
   done: boolean;
   missingText: string;
@@ -61,12 +68,19 @@ export interface ChecklistItem {
 
 export function closeChecklist(order: Orden): ChecklistItem[] {
   return [
-    {
-      id: 'solucion',
-      label: 'Solución documentada',
-      done: Boolean(order.solucion?.trim()),
-      missingText: 'Falta documentar la solución',
-    },
+    isSinReparar(order)
+      ? {
+          id: 'informe',
+          label: 'Informe de no reparación',
+          done: Boolean(order.informeNoReparacion?.trim()),
+          missingText: 'Falta el informe de no reparación',
+        }
+      : {
+          id: 'solucion',
+          label: 'Solución documentada',
+          done: Boolean(order.solucion?.trim()),
+          missingText: 'Falta documentar la solución',
+        },
     {
       id: 'evidencia',
       label: 'Al menos una evidencia adjunta',
@@ -84,7 +98,7 @@ export function closeChecklist(order: Orden): ChecklistItem[] {
 
 // ---------------------------------------------------------------- siguiente paso (UI)
 
-export type StepRequirementId = 'tecnico' | 'diagnostico' | 'solucion' | 'evidencia' | 'validada' | 'desbloqueo';
+export type StepRequirementId = 'tecnico' | 'diagnostico' | 'solucion' | 'informe' | 'evidencia' | 'validada' | 'desbloqueo' | 'escalamiento';
 
 export interface StepRequirement {
   id: StepRequirementId;
@@ -113,6 +127,7 @@ export function stepRequirements(order: Orden, to: EstadoOrden): StepRequirement
       break;
     case 'CERRADO':
       for (const c of closeChecklist(order)) reqs.push({ id: c.id, label: c.label, done: c.done });
+      if (hasOpenEscalation(order)) reqs.push({ id: 'escalamiento', label: 'Escalamiento resuelto', done: false });
       break;
     default:
       break;
@@ -124,17 +139,15 @@ export function stepRequirements(order: Orden, to: EstadoOrden): StepRequirement
 
 function transitionPermission(order: Orden, to: EstadoOrden, user: Usuario): string | null {
   if (to === 'CERRADO') {
-    return can(user.rol, 'order.close') ? null : 'Solo un Supervisor o Admin puede cerrar la orden';
+    return can(user.roles, 'order.close') || can(user.roles, 'order.deliver') ? null : 'Tu rol no puede cerrar la orden';
   }
-  if (can(user.rol, 'order.transition')) return null;
-  if (can(user.rol, 'order.transition.own')) {
-    return isAssignedTo(order, user) ? null : 'Solo podés mover órdenes asignadas a vos';
-  }
-  if (can(user.rol, 'order.transition.reception')) {
-    return order.estado === 'RECIBIDO' && to === 'EN_DIAGNOSTICO'
-      ? null
-      : 'Recepción solo puede pasar órdenes de Recibido a En diagnóstico';
-  }
+  if (can(user.roles, 'order.transition')) return null;
+  const own = can(user.roles, 'order.transition.own');
+  const reception = can(user.roles, 'order.transition.reception');
+  if (own && isAssignedTo(order, user)) return null;
+  if (reception && order.estado === 'RECIBIDO' && to === 'EN_DIAGNOSTICO') return null;
+  if (own) return 'Solo podés mover órdenes asignadas a vos';
+  if (reception) return 'Recepción solo puede pasar órdenes de Recibido a En diagnóstico';
   return 'Tu rol no puede cambiar el estado de las órdenes';
 }
 
@@ -155,6 +168,7 @@ export function canTransition(order: Orden, to: EstadoOrden, user: Usuario): Rul
   const perm = transitionPermission(order, to, user);
   if (perm) missing.push(perm);
   if (order.bloqueada) missing.push('La orden está bloqueada: primero hay que desbloquearla');
+  if (isSinReparar(order) && to !== 'CERRADO') missing.push('La orden se resolvió sin reparación: solo queda entregarla');
 
   switch (to) {
     case 'EN_DIAGNOSTICO':
@@ -168,6 +182,7 @@ export function canTransition(order: Orden, to: EstadoOrden, user: Usuario): Rul
       break;
     case 'CERRADO':
       for (const item of closeChecklist(order)) if (!item.done) missing.push(item.missingText);
+      if (hasOpenEscalation(order)) missing.push('Hay un escalamiento abierto: primero hay que resolverlo');
       break;
     default:
       break;
@@ -188,29 +203,21 @@ export function canBlock(order: Orden, user: Usuario): RuleResult {
 export function canUnblock(order: Orden, user: Usuario): RuleResult {
   const missing: string[] = [];
   if (!order.bloqueada) missing.push('La orden no está bloqueada');
-  if (!can(user.rol, 'order.unblock')) missing.push('Solo un Supervisor o Admin puede desbloquear');
-  return result(missing);
-}
-
-export function canEscalate(order: Orden, user: Usuario): RuleResult {
-  const missing: string[] = [];
-  if (order.estado === 'CERRADO') missing.push('No se puede escalar una orden cerrada');
-  if (order.escalada) missing.push('La orden ya está escalada');
-  if (!canActOnOrder(user, order, 'escalate')) missing.push('No tenés permiso para escalar esta orden');
+  if (!can(user.roles, 'order.unblock')) missing.push('Solo un Supervisor o Admin puede desbloquear');
   return result(missing);
 }
 
 export function canReopen(order: Orden, user: Usuario): RuleResult {
   const missing: string[] = [];
   if (order.estado !== 'CERRADO') missing.push('Solo se pueden reabrir órdenes cerradas');
-  if (!can(user.rol, 'order.reopen')) missing.push('Solo un Supervisor o Admin puede reabrir');
+  if (!can(user.roles, 'order.reopen')) missing.push('Solo un Supervisor o Admin puede reabrir');
   return result(missing);
 }
 
 export function canValidate(order: Orden, user: Usuario): RuleResult {
   const missing: string[] = [];
-  if (!can(user.rol, 'order.validate')) missing.push('Solo un Supervisor o Admin puede validar');
+  if (!can(user.roles, 'order.validate')) missing.push('Solo un Supervisor o Admin puede validar');
   if (order.estado === 'CERRADO') missing.push('La orden ya está cerrada');
-  if (!order.solucion?.trim()) missing.push('Primero hay que documentar la solución');
+  if (!order.solucion?.trim() && !order.informeNoReparacion?.trim()) missing.push('Primero hay que documentar la solución');
   return result(missing);
 }

@@ -1,4 +1,4 @@
-import { ArrowUpCircle, Flame, Lock, PackageCheck, Plus, Rocket, Wrench } from 'lucide-react';
+import { AlertTriangle, ArrowUpCircle, Flame, Lock, PackageCheck, Plus, Rocket, Wrench } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { CriticalList } from '@/components/domain/dashboard/CriticalList';
 import { MyWorkPanel } from '@/components/domain/dashboard/MyWorkPanel';
@@ -11,6 +11,8 @@ import { Card } from '@/components/ui/Card';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useDashboard } from '@/hooks/useDashboard';
+import { can } from '@/lib/auth/permissions';
+import { ROL_LABEL } from '@/lib/domain/labels';
 import { errorMessage } from '@/lib/api/errors';
 import { now } from '@/lib/clock';
 
@@ -41,7 +43,7 @@ function Content() {
     );
   }
 
-  const { metrics, informesCriticos, recientes, totalOrdenes } = dashboard.data;
+  const { metrics, informesCriticos, recientes, totalOrdenes, rolesFaltantes } = dashboard.data;
 
   if (totalOrdenes === 0) {
     return (
@@ -51,7 +53,7 @@ function Content() {
             icon={<Rocket aria-hidden="true" />}
             title="El sistema está vacío"
             description={
-              user?.rol === 'TECNICO'
+              user && !can(user.roles, 'order.view.all')
                 ? 'Todavía no tenés órdenes asignadas. Cuando recepción te asigne una, va a aparecer acá.'
                 : 'Empezá registrando un cliente y su equipo, y creá la primera orden de servicio.'
             }
@@ -83,9 +85,17 @@ function Content() {
           hint={metrics.criticasVencidas ? `${metrics.criticasVencidas} con más de 24 h` : 'Ninguna vencida'}
         />
         <MetricCard label="Bloqueadas" value={metrics.bloqueadas} icon={Lock} tone="rose" href="/alertas#bloqueadas" hint="Esperando desbloqueo" />
-        <MetricCard label="Escaladas" value={metrics.escaladas} icon={ArrowUpCircle} tone="orange" href="/alertas#escaladas" hint="Requieren nivel 2" />
+        <MetricCard label="Escaladas" value={metrics.escaladas} icon={ArrowUpCircle} tone="orange" href="/alertas#escaladas" hint="Esperan atención" />
         <MetricCard label="Listas para retirar" value={metrics.listas} icon={PackageCheck} tone="green" href="/ordenes?estado=LISTO_PARA_RETIRAR" hint="Avisar al cliente" />
       </section>
+
+      {rolesFaltantes.length > 0 && user && can(user.roles, 'users.manage') && (
+        <p role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+          <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+          Nadie cubre: {rolesFaltantes.map((r) => ROL_LABEL[r]).join(', ')}. Algunas órdenes no van a poder avanzar.
+          <a href="/configuracion" className="font-semibold underline">Asignar</a>
+        </p>
+      )}
 
       <CriticalList informes={informesCriticos} />
 

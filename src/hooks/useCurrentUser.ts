@@ -14,5 +14,5 @@ export function useSessionStatus(): SessionStatus {
 
 export function usePermission(permission: Permission): boolean {
   const user = useCurrentUser();
-  return user !== null && can(user.rol, permission);
+  return user !== null && can(user.roles, permission);
 }
