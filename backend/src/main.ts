@@ -7,6 +7,10 @@ import { SESSION_COOKIE } from './auth/auth.guard';
 import type { Env } from './config/env';
 import { configureApp } from './setup';
 
+// «Hoy» (fecha estimada, año del número de orden) se calcula en la hora del taller, no en la del
+// servidor: los servicios en la nube corren en UTC, 3 h adelante de Argentina. Se cambia con TZ.
+process.env.TZ ||= 'America/Argentina/Buenos_Aires';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   configureApp(app);
