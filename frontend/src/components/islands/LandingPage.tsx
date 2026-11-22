@@ -42,10 +42,11 @@ export default function LandingPage() {
           <span className="text-lg font-bold">ServicioTécnico</span>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
+            {/* En el celular no entra al lado del nombre: ahí queda el mismo botón debajo del título */}
             {user ? (
-              <LinkButton href="/dashboard" variant="outline">Ir al sistema <ArrowRight className="size-4" aria-hidden="true" /></LinkButton>
+              <LinkButton href="/dashboard" variant="outline" className="max-sm:hidden">Ir al sistema <ArrowRight className="size-4" aria-hidden="true" /></LinkButton>
             ) : (
-              <LinkButton href="/login" variant="outline" leftIcon={<LogIn aria-hidden="true" />}>Iniciar sesión</LinkButton>
+              <LinkButton href="/login" variant="outline" className="max-sm:hidden" leftIcon={<LogIn aria-hidden="true" />}>Iniciar sesión</LinkButton>
             )}
           </div>
         </div>
