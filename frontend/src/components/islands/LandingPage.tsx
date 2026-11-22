@@ -28,7 +28,9 @@ export default function LandingPage() {
     void loadSession().then(setUser);
   }, []);
 
-  const puedeRegistrar = status?.registroAbierto === true;
+  // Visible desde el primer momento: se oculta solo si el servidor dice que el registro está cerrado.
+  // Esperar la respuesta lo escondía cada vez que el backend tardaba (Render dormido) o fallaba.
+  const puedeRegistrar = status?.registroAbierto !== false;
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg">

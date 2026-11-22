@@ -38,7 +38,8 @@ export default function LoginPage() {
       else setRegistroAbierto(s.registroAbierto);
     }, () => undefined);
   }, []);
-  const [registroAbierto, setRegistroAbierto] = useState(false);
+  // Visible salvo que el servidor diga que el registro está cerrado (no depende de que conteste rápido)
+  const [registroAbierto, setRegistroAbierto] = useState(true);
 
   const {
     register, handleSubmit, setError, formState: { errors, isSubmitting },
