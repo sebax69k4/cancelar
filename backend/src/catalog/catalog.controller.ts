@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthUser } from '../auth/auth.decorators';
-import { toServicio, toUsuario } from '../common/mappers';
+import { toPersona, toServicio } from '../common/mappers';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Catálogos de solo lectura: usuarios asignables y servicios. */
@@ -14,7 +14,7 @@ export class CatalogController {
   @Get('users')
   async users(@CurrentUser() user: AuthUser) {
     const list = await this.prisma.usuario.findMany({ where: { tallerId: user.tallerId, activo: true }, orderBy: { nombre: 'asc' } });
-    return list.map(toUsuario);
+    return list.map(toPersona);
   }
 
   /** GET /services — catálogo de servicios activos. */

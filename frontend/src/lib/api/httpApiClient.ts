@@ -12,7 +12,7 @@ import type {
 } from './apiClient';
 import { handleUnauthorized } from '@/lib/auth/session';
 import { ApiError, type ApiErrorCode } from './errors';
-import type { CausaEscalamiento, Cliente, Equipo, EstadoOrden, OrdenResumen, Servicio, Usuario } from '@/types/domain';
+import type { CausaEscalamiento, Cliente, Equipo, EstadoOrden, OrdenResumen, PersonaTaller, Servicio } from '@/types/domain';
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 type Query = Record<string, string | undefined>;
@@ -128,7 +128,7 @@ export class HttpApiClient implements ApiClient {
   }
 
   getUsers() {
-    return this.request<Usuario[]>('GET', '/users');
+    return this.request<PersonaTaller[]>('GET', '/users');
   }
 
   getServices() {

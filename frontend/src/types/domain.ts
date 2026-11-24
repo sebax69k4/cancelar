@@ -63,6 +63,9 @@ export interface Usuario {
   roles: Rol[];
 }
 
+/** Una persona vista por sus compañeros (sin email: solo lo ven ella y el Admin). */
+export type PersonaTaller = Pick<Usuario, 'id' | 'nombre' | 'roles'>;
+
 export interface Cliente {
   id: string;
   nombre: string;
@@ -176,8 +179,8 @@ export interface OrdenResumen extends Orden {
   cliente: Cliente;
   equipo: Equipo;
   servicio: Servicio;
-  responsable: Usuario;
-  tecnico: Usuario | null;
+  responsable: PersonaTaller;
+  tecnico: PersonaTaller | null;
   horasAbierta: number;
   atrasada: boolean;
   criticaVencida: boolean;
