@@ -11,12 +11,29 @@ export const TEL_MAX_LARGO = 30;
 /** Nombres de personas, clientes, talleres y servicios: al menos una letra (no «123» ni «!!»). */
 export const TIENE_LETRA_RE = /\p{L}/u;
 
+/** Largo máximo de los textos cortos que se cargan al crear algo o al ingresar (nombres, email, contraseña…). */
+export const MAX_TEXTO = 40;
+
+/**
+ * Caracteres admitidos en un nombre: letras (con tildes y ñ), números, espacios y unos pocos signos.
+ * Quedan afuera < > " ; ` { } [ ] \ | = * % $ @ ! ?, los de control y los invisibles. El primero es una
+ * letra o un número: así un nombre tampoco puede pasar por fórmula (=, +, -, @) en una planilla.
+ */
+export const NOMBRE_RE = /^[\p{L}\d .,'’&()/+ºª°#_-]*$/u;
+export const EMPIEZA_BIEN_RE = /^[\p{L}\d]/u;
+
+/** Email en minúsculas: sin espacios, comillas ni caracteres raros. */
+const EMAIL_USUARIO_RE = /^[a-z0-9_%+-]+(\.[a-z0-9_%+-]+)*$/;
+const EMAIL_PARTE_DOMINIO_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
+/** Caracteres de control e invisibles (saltos de línea, espacios de ancho cero, marcas de dirección…). */
+const INVISIBLES_RE = /[\p{C}\u2028\u2029]/u;
+
 /** Contraseñas: largo mínimo (MIN_PASSWORD en setup.ts) con al menos una letra y un número. */
 export const TIENE_NUMERO_RE = /\d/;
-export const MAX_PASSWORD = 200;
+export const MAX_PASSWORD = MAX_TEXTO;
 
-/** Largo máximo de un email (RFC 5321). */
-export const MAX_EMAIL = 254;
+export const MAX_EMAIL = MAX_TEXTO;
 
 /** Precio de un servicio, en pesos enteros. */
 export const PRECIO_MAX = 100_000_000;
@@ -29,6 +46,43 @@ export const MAX_BUSQUEDA = 100;
 
 /** Tamaño máximo de cada archivo de evidencia, en MB. UPLOAD_MAX_MB solo puede bajarlo. */
 export const MAX_EVIDENCIA_MB = 10;
+
+/** Deja un nombre prolijo: sin espacios adelante ni atrás, sin espacios dobles y con las tildes unificadas. */
+export function limpiarNombre(texto: string): string {
+  return texto.normalize('NFC').replace(/\s+/g, ' ').trim();
+}
+
+/** Problema de un nombre ya pasado por limpiarNombre (null si está bien). El largo se mira primero. */
+export function problemaNombre(campo: string, texto: string, min = 2, conLetras = true): string | null {
+  if (texto.length < min) return min === 1 ? `${campo}: no puede quedar vacío` : `${campo}: mínimo ${min} caracteres`;
+  if (texto.length > MAX_TEXTO) return `${campo}: máximo ${MAX_TEXTO} caracteres`;
+  if (!NOMBRE_RE.test(texto)) return `${campo}: usá solo letras, números, espacios y . , ' & ( ) / + # _ -`;
+  if (!EMPIEZA_BIEN_RE.test(texto)) return `${campo}: tiene que empezar con una letra o un número`;
+  if (conLetras && !TIENE_LETRA_RE.test(texto)) return `${campo}: tiene que tener letras`;
+  return null;
+}
+
+/** Problema de un email ya recortado y en minúsculas (null si está bien). El largo se mira primero. */
+export function problemaEmail(email: string): string | null {
+  if (email.length > MAX_EMAIL) return `El email no puede tener más de ${MAX_EMAIL} caracteres`;
+  const [usuario, dominio, ...resto] = email.split('@');
+  const partes = (dominio ?? '').split('.');
+  const bien =
+    resto.length === 0 && EMAIL_USUARIO_RE.test(usuario ?? '') && partes.length >= 2 &&
+    partes.every((p) => EMAIL_PARTE_DOMINIO_RE.test(p)) && /^[a-z]{2,}$/.test(partes[partes.length - 1] ?? '');
+  return bien ? null : 'Ingresá un email válido';
+}
+
+/** Lo que vale para cualquier contraseña, al crearla y al ingresar (null si está bien). */
+export function problemaPasswordEscrita(password: string): string | null {
+  if (password.length > MAX_PASSWORD) return `La contraseña no puede tener más de ${MAX_PASSWORD} caracteres`;
+  if (INVISIBLES_RE.test(password)) return 'La contraseña tiene caracteres invisibles que no se admiten';
+  if (password !== password.trim()) return 'La contraseña no puede empezar ni terminar con espacios';
+  return null;
+}
+
+/** Cantidad máxima de evidencias por orden. */
+export const MAX_EVIDENCIAS = 30;
 
 export function digitosTelefono(telefono: string): number {
   return telefono.replace(/\D/g, '').length;
@@ -46,7 +100,8 @@ export function problemaTelefono(telefono: string): string | null {
 /** Problema de una contraseña nueva (null si está bien). */
 export function problemaPassword(password: string, minimo: number): string | null {
   if (password.length < minimo) return `La contraseña debe tener al menos ${minimo} caracteres`;
-  if (password.length > MAX_PASSWORD) return `La contraseña no puede tener más de ${MAX_PASSWORD} caracteres`;
+  const escrita = problemaPasswordEscrita(password);
+  if (escrita) return escrita;
   if (!TIENE_LETRA_RE.test(password) || !TIENE_NUMERO_RE.test(password)) return 'La contraseña tiene que combinar letras y números';
   return null;
 }

@@ -222,14 +222,15 @@ Todas las rutas llevan el prefijo `/api` y requieren sesión, salvo `health`, `a
 
 Las reglas están en `src/domain/validation.ts` (copia en `frontend/src/lib/workflow/validation.ts`), y se aplican con los decoradores de `src/common/validators.ts`. El frontend las muestra campo por campo antes de enviar; el backend las vuelve a controlar siempre.
 
-- **Nombres** (personas, clientes, taller, servicios): de 2 al máximo del campo, con al menos una letra.
+- **Nombres** (personas, clientes, taller, servicios; también marca y modelo): de 2 a **40 caracteres** (`MAX_TEXTO`), con al menos una letra. Solo letras, números, espacios y `. , ' & ( ) / + # _ -`, empezando con letra o número. Los espacios de adelante, de atrás y dobles se quitan; los caracteres invisibles se rechazan.
 - **Teléfono**: solo números, espacios, `+`, `-` y paréntesis, de 6 a 15 dígitos. El del taller es opcional.
-- **Email**: formato válido, hasta 254 caracteres, se guarda en minúsculas.
-- **Contraseña nueva**: al menos 8 caracteres, con letras y números. En el registro y en «Mi cuenta» hay que repetirla, y la nueva tiene que ser distinta de la actual.
+- **Email**: formato válido sin caracteres raros, hasta 40 caracteres, se guarda en minúsculas y sin espacios. Vale igual al ingresar.
+- **Contraseña nueva**: de 8 a 40 caracteres, con letras y números; admite símbolos, pero no espacios en las puntas ni caracteres invisibles. Al ingresar se controlan el largo, las puntas y los invisibles. En el registro y en «Mi cuenta» hay que repetirla, y la nueva tiene que ser distinta de la actual.
 - **Servicios**: el nombre no se repite dentro del taller (sin importar mayúsculas); el precio es un entero de 0 a 100.000.000.
 - **Fecha estimada de la orden**: de hoy a 365 días.
 - **Búsquedas**: hasta 100 caracteres.
-- **Evidencias**: hasta **10 MB** por archivo (`MAX_EVIDENCIA_MB`). `UPLOAD_MAX_MB` en `.env` solo puede bajarlo: con un valor mayor a 10 el backend no arranca.
+- **Evidencias**: hasta **10 MB** por archivo (`MAX_EVIDENCIA_MB`). `UPLOAD_MAX_MB` en `.env` solo puede bajarlo: con un valor mayor a 10 el backend no arranca. Hasta 30 archivos por orden.
+- **Subidas pesadas** (scripts por fuera del navegador): un pedido demasiado grande se corta sin recibirlo entero, con o sin `Content-Length` y con o sin sesión (`common/body-limit.ts`). El permiso sobre la orden se controla antes de leer el archivo, y cada persona puede subir 3 archivos a la vez, 30 por minuto y 150 por hora; en total, 6 a la vez (`orders/upload.guard.ts`). No se aceptan campos de texto ni un segundo archivo, y siempre quedan 100 MB libres en el disco.
 
 ## Seguridad
 
@@ -248,7 +249,7 @@ Las reglas están en `src/domain/validation.ts` (copia en `frontend/src/lib/work
   - **Firma**: los primeros bytes tienen que ser los del tipo. Un HTML o un ejecutable renombrado como `.jpg` se rechaza.
   - **Estructura completa**: PNG terminado en `IEND`, GIF en `;`, WebP con el tamaño RIFF exacto, PDF con `%%EOF`. Así se frenan los «políglotas» (una foto válida con un ZIP o un programa pegado al final). En JPEG y HEIC no se controla, porque los celulares guardan datos legítimos después de la imagen.
   - **Sin código**: se rechaza si trae HTML, `<script>`, `<svg>`, `<iframe>`, PHP, `javascript:` o un ejecutable de Windows incrustado.
-  - **PDF sin acciones**: se rechaza si trae `/JavaScript`, `/JS`, `/Launch`, adjuntos (`/EmbeddedFiles`), `/RichMedia`, formularios XFA o envío de formularios. También se buscan disfrazadas (`/J#61vaScript`) y escondidas en objetos comprimidos, que se descomprimen con tope de 50 MB contra las bombas zip.
+  - **PDF sin acciones**: se rechaza si trae `/JavaScript`, `/JS`, `/Launch`, adjuntos (`/EmbeddedFiles`), `/RichMedia`, formularios XFA o envío de formularios. También se buscan disfrazadas (`/J#61vaScript`) y escondidas en objetos comprimidos, que se descomprimen con un tope total de 20 MB contra las bombas zip.
   - **Guardado**: nombre aleatorio y extensión del tipo verificado, nunca la del nombre original (un `shell.php` se guarda `.jpg`), y nunca fuera de `UPLOAD_DIR`. El nombre visible se limpia de carpetas, saltos de línea y caracteres invisibles (por ejemplo, la inversión de texto que disfraza `fdp.exe`).
   - **Descarga aislada**: `Content-Security-Policy: default-src 'none'; sandbox` y `nosniff`, así que aunque algo se colara el navegador no ejecuta scripts ni accede a la sesión. Los PDF se descargan (`attachment`) en lugar de abrirse dentro del sitio.
 - `ValidationPipe` con `whitelist`: los campos que no están en el DTO se descartan (ej. un `prioridad` enviado por el cliente).

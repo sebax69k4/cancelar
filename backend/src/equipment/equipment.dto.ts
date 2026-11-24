@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import { IsEnum, IsNotEmpty, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 import { trimString } from '../common/text';
+import { TextoCorto } from '../common/validators';
 import { MAX_BUSQUEDA } from '../domain/validation';
 import { TipoEquipo } from '../generated/prisma/enums';
 
@@ -12,14 +13,10 @@ export class CreateEquipmentDto {
   @IsEnum(TipoEquipo, { message: 'Tipo de equipo inválido' })
   tipo: TipoEquipo;
 
-  @Transform(trimString)
-  @IsString()
-  @Length(1, 40, { message: 'Marca: entre 1 y 40 caracteres' })
+  @TextoCorto('Marca')
   marca: string;
 
-  @Transform(trimString)
-  @IsString()
-  @Length(1, 60, { message: 'Modelo: entre 1 y 60 caracteres' })
+  @TextoCorto('Modelo')
   modelo: string;
 
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))

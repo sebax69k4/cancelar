@@ -1,4 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { AuthUser } from '../auth/auth.decorators';
 import { WorkflowException, enforce } from '../common/errors';
@@ -11,7 +13,7 @@ import {
 import { ESTADO_LABEL, RESOLUCION_LABEL } from '../domain/labels';
 import { can } from '../domain/permissions';
 import { calculatePriority } from '../domain/priority';
-import { MAX_DIAS_ESTIMADA, limiteFechaEstimada } from '../domain/validation';
+import { MAX_DIAS_ESTIMADA, MAX_EVIDENCIAS, limiteFechaEstimada } from '../domain/validation';
 import { nombreSeguro, problemaEvidencia } from './evidence.signature';
 import {
   canActOnOrder, canBlock, canReopen, canTransition, canUnblock, canValidate, isAssignedTo,
@@ -486,6 +488,17 @@ export class OrdersService {
 
   // ------------------------------------------------------------------ evidencia
 
+  /** Permiso, cupo de la orden y lugar en el disco: se controla antes de recibir el archivo. */
+  async assertPuedeSubir(user: AuthUser, id: string): Promise<void> {
+    const o = await this.loadVisible(this.prisma, user, id);
+    this.assertCanEditEvidence(user, o);
+    this.assertCupoEvidencias(o);
+    if (!(await this.storage.hayLugar())) {
+      eventoSeguridad('evidencia.disco_lleno', { usuario: user.id });
+      throw new ServiceUnavailableException('No hay espacio para guardar archivos. Avisale al administrador del sistema.');
+    }
+  }
+
   async addEvidence(user: AuthUser, id: string, file: UploadedEvidence | undefined): Promise<OrdenResumenDto> {
     if (!file) throw new BadRequestException('Falta el archivo de evidencia (campo «file»)');
     if (!EVIDENCE_MIME_TYPES.has(file.mimetype)) {
@@ -507,6 +520,7 @@ export class OrdersService {
     try {
       return await this.mutate(user, id, async (fresh, tx) => {
         this.assertCanEditEvidence(user, fresh);
+        this.assertCupoEvidencias(fresh);
         await tx.evidencia.create({
           data: {
             ordenId: id,
@@ -550,6 +564,12 @@ export class OrdersService {
     const path = this.storage.absolute(ev.ruta);
     if (!(await this.storage.exists(ev.ruta))) throw new NotFoundException('El archivo de la evidencia no está disponible');
     return { path, mime: ev.tipoMime, nombre: ev.nombreArchivo };
+  }
+
+  private assertCupoEvidencias(o: OrdenFull): void {
+    if (o.evidencias.length >= MAX_EVIDENCIAS) {
+      throw new WorkflowException('La orden ya tiene muchas evidencias', [`Como máximo ${MAX_EVIDENCIAS} archivos por orden: quitá alguno para subir otro`]);
+    }
   }
 
   private assertCanEditEvidence(user: AuthUser, o: OrdenFull): void {

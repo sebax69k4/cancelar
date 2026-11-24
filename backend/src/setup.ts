@@ -2,6 +2,7 @@ import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { limiteCuerpo } from './common/body-limit';
 import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 import { origenPermitido } from './common/origin';
 import type { Env } from './config/env';
@@ -18,6 +19,8 @@ export function configureApp(app: INestApplication): void {
   const origins = config.get('CORS_ORIGIN', { infer: true }).split(',').map((o) => o.trim()).filter(Boolean);
   app.enableCors({ origin: origins, credentials: true });
   app.use(origenPermitido(origins)); // CSRF: lo que modifica datos tiene que venir del frontend
+  // Antes de leer ningún cuerpo: un pedido gigante se corta sin recibirlo entero
+  app.use(limiteCuerpo(config.get('UPLOAD_MAX_MB', { infer: true })));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidUnknownValues: true }));
   app.useGlobalFilters(new ApiExceptionFilter(config.get('UPLOAD_MAX_MB', { infer: true })));
   app.enableShutdownHooks();

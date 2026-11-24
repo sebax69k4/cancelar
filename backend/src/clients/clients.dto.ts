@@ -5,7 +5,7 @@ import { EmailOpcional, Nombre, Telefono } from '../common/validators';
 import { MAX_BUSQUEDA } from '../domain/validation';
 
 export class CreateClientDto {
-  @Nombre('Nombre', 80)
+  @Nombre('Nombre')
   nombre: string;
 
   @Telefono()

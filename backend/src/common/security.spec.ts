@@ -2,7 +2,7 @@ import { deflateSync } from 'node:zlib';
 import { coincideFirma, MENSAJES_EVIDENCIA, nombreSeguro, problemaEvidencia } from '../orders/evidence.signature';
 import { corteDeSesiones, nuevaSesion, sesionVigente } from '../auth/sessions';
 import { validateEnv } from '../config/env';
-import { MAX_EVIDENCIA_MB, problemaPassword, problemaTelefono } from '../domain/validation';
+import { MAX_EVIDENCIA_MB, limpiarNombre, problemaEmail, problemaNombre, problemaPassword, problemaTelefono } from '../domain/validation';
 import { escapeLike } from './text';
 import { Logger } from '@nestjs/common';
 import { eventoSeguridad, ocultarEmail } from './security-log';
@@ -112,6 +112,59 @@ describe('contenido malicioso en evidencias', () => {
     expect(nombreSeguro('..')).toBe('archivo');
     expect(nombreSeguro('')).toBe('archivo');
     expect(nombreSeguro('x'.repeat(300))).toHaveLength(200);
+  });
+});
+
+describe('PDF preparados para frenar el servidor', () => {
+  const pdf = (cuerpo: Buffer | string) => Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from(cuerpo as Buffer), Buffer.from('\n%%EOF\n')]);
+
+  it('suma lo descomprimido de todos los objetos (bomba zip repartida)', () => {
+    const inflable = deflateSync(Buffer.alloc(8 * 1024 * 1024, 32));
+    const objeto = Buffer.concat([Buffer.from('1 0 obj << /Type /ObjStm /Filter /FlateDecode >>\nstream\n'), inflable, Buffer.from('\nendstream endobj\n')]);
+    expect(problemaEvidencia('application/pdf', pdf(Buffer.concat([objeto, objeto])))).toBeNull(); // 16 MB: entra
+    expect(problemaEvidencia('application/pdf', pdf(Buffer.concat(Array<Buffer>(12).fill(objeto))))).toBe(MENSAJES_EVIDENCIA.estructura);
+  });
+
+  it('cientos de miles de streams no lo hacen lento', () => {
+    const t = Date.now();
+    problemaEvidencia('application/pdf', pdf('stream\nendstream\n'.repeat(300_000)));
+    expect(Date.now() - t).toBeLessThan(3000); // antes: minutos
+  });
+
+  it('un JavaScript en un object stream se sigue detectando después de otros streams', () => {
+    const js = deflateSync(Buffer.from('<< /S /JavaScript /JS (app.alert(1)) >>'));
+    const cuerpo = Buffer.concat([
+      Buffer.from('1 0 obj << /Length 3 >>\nstream\nabc\nendstream endobj\n2 0 obj << /Type /ObjStm /Filter /FlateDecode >>\nstream\n'), js, Buffer.from('\nendstream endobj'),
+    ]);
+    expect(problemaEvidencia('application/pdf', pdf(cuerpo))).toBe(MENSAJES_EVIDENCIA.pdf);
+  });
+});
+
+describe('textos al crear y al ingresar', () => {
+  it('nombres: hasta 40, sin caracteres raros y sin espacios de más', () => {
+    expect(limpiarNombre('  Ana \t  Pérez\n ')).toBe('Ana Pérez');
+    expect(limpiarNombre('n\u0303andu')).toBe('ñandu'); // tilde suelta: queda unificada
+    for (const ok of ['Ñandú Pérez', "D'Angelo", 'O’Higgins', 'Taller 24 hs.', 'Pérez & Cía. (Suc. 2)', 'Upgrade RAM / SSD', 'x'.repeat(40)]) {
+      expect([ok, problemaNombre('N', ok)]).toEqual([ok, null]);
+    }
+    for (const mal of ['x'.repeat(41), '<b>', 'a;b', 'a"b', 'a`b', 'a{b}', 'a[b]', 'a\\b', 'a|b', 'a=b', 'a*b', 'a%b', 'a$b', 'a@b', 'a!b', 'a?b', '+ab', '-ab', 'a\u0000b', 'a\u200bb', 'a\u202eb', '12', '']) {
+      expect([mal, problemaNombre('N', mal) !== null]).toEqual([mal, true]);
+    }
+  });
+
+  it('emails: hasta 40 y sin caracteres raros', () => {
+    for (const ok of ['a@x.co', 'ana.perez+taller@sub.mi-taller.com.ar', `${'a'.repeat(33)}@x.com`]) expect([ok, problemaEmail(ok)]).toEqual([ok, null]);
+    for (const mal of ['', '@', 'a@', '@x.com', 'a@x', 'a@x.c', 'a b@x.com', 'a@x .com', ' a@x.com', 'a@x.com ', 'a@x..com', 'a@x.com.', 'a<b@x.com', `${'a'.repeat(36)}@x.co`, `${'a-'.repeat(50_000)}@x.com`]) {
+      expect([mal.slice(0, 50), problemaEmail(mal) !== null]).toEqual([mal.slice(0, 50), true]);
+    }
+  });
+
+  it('contraseñas: hasta 40, con símbolos pero sin espacios en las puntas ni invisibles', () => {
+    expect(problemaPassword('¡Cl@ve "rara" <1>;', 8)).toBeNull();
+    expect(problemaPassword('a1'.repeat(20), 8)).toBeNull();
+    for (const mal of ['a1'.repeat(20) + 'x', ' clave-larga-1', 'clave-larga-1 ', 'clave\tlarga-1', 'clave\u200blarga-1', '\u00a0clave-larga-1']) {
+      expect([mal, problemaPassword(mal, 8) !== null]).toEqual([mal, true]);
+    }
   });
 });
 

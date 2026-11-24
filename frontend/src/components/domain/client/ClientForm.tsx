@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useCreateClient } from '@/hooks/useClients';
 import { errorMessage } from '@/lib/api/errors';
 import { toast } from '@/lib/toast';
+import { MAX_TEXTO } from '@/lib/workflow/validation';
 import { clientSchema, emptyClient, type ClientInput } from '@/schemas/client.schema';
 import type { Cliente } from '@/types/domain';
 
@@ -62,6 +63,7 @@ export function ClientForm({ idPrefix = 'cf', initialName = '', onCreated, onCan
           data-autofocus
           leftIcon={<User aria-hidden="true" />}
           error={errors.nombre?.message}
+          maxLength={MAX_TEXTO}
           {...register('nombre')}
         />
         <Input

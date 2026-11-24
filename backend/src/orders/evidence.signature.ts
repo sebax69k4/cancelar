@@ -62,8 +62,11 @@ const PDF_PELIGROSO = /\/(?:JavaScript|JS|Launch|EmbeddedFiles?|RichMedia|XFA|Su
 /** En los nombres de PDF «#4A» equivale a «J»: así se intenta esconder /JavaScript. */
 const decodificarNombresPdf = (texto: string) => texto.replace(/#([0-9a-fA-F]{2})/g, (_, h: string) => String.fromCharCode(parseInt(h, 16)));
 
-/** Límite al descomprimir objetos de un PDF: un archivo chico no puede inflarse sin fin («bomba zip»). */
-const MAX_DESCOMPRIMIDO = 50 * 1024 * 1024;
+/**
+ * Límite al descomprimir los objetos de un PDF, sumando todos: un archivo chico no puede inflarse
+ * sin fin («bomba zip»), ni de una vez ni repartido en muchos objetos.
+ */
+const MAX_DESCOMPRIMIDO = 20 * 1024 * 1024;
 
 /**
  * La parte del PDF donde puede haber acciones: todo lo que está fuera de los «streams» (los
@@ -75,18 +78,24 @@ function textoRevisablePdf(texto: string): string | null {
   const partes: string[] = [];
   const inicio = /(?<!end)stream\r?\n/g;
   let cursor = 0;
+  let disponible = MAX_DESCOMPRIMIDO;
   for (let m = inicio.exec(texto); m; m = inicio.exec(texto)) {
     const datos = m.index + m[0].length;
     const fin = texto.indexOf('endstream', datos);
     if (fin < 0) break;
-    const diccionario = texto.slice(Math.max(cursor, texto.lastIndexOf('obj', m.index)), m.index);
-    partes.push(texto.slice(cursor, m.index));
+    // Se busca solo en el tramo desde el stream anterior: buscando en todo el texto, un PDF con
+    // cientos de miles de streams tardaba minutos y frenaba el servidor entero
+    const tramo = texto.slice(cursor, m.index);
+    const diccionario = tramo.slice(Math.max(0, tramo.lastIndexOf('obj')));
+    partes.push(tramo);
     if (/\/Type\s*\/ObjStm/.test(diccionario)) {
       if (!/\/FlateDecode/.test(diccionario)) {
         partes.push(texto.slice(datos, fin)); // sin comprimir: se revisa tal cual
       } else {
         try {
-          partes.push(inflateSync(Buffer.from(texto.slice(datos, fin).replace(/\r?\n$/, ''), 'latin1'), { maxOutputLength: MAX_DESCOMPRIMIDO }).toString('latin1'));
+          const inflado = inflateSync(Buffer.from(texto.slice(datos, fin).replace(/\r?\n$/, ''), 'latin1'), { maxOutputLength: Math.max(1, disponible) });
+          disponible -= inflado.length;
+          partes.push(inflado.toString('latin1'));
         } catch {
           return null;
         }

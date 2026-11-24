@@ -5,7 +5,7 @@ import { email, nombre, passwordNueva, precio, telefonoOpcional } from './common
 import { problemaPassword } from '@/lib/workflow/validation';
 
 export const tallerSchema = z.object({
-  nombre: nombre('Nombre del taller', 100),
+  nombre: nombre('Nombre del taller'),
   telefono: telefonoOpcional,
   direccion: z.string().trim().max(200, 'Máximo 200 caracteres'),
 });
@@ -16,7 +16,7 @@ const roles = z.array(z.enum(ROLES)).min(1, 'Elegí al menos un rol');
 
 /** Persona nueva: la contraseña es obligatoria. */
 export const newUserSchema = z.object({
-  nombre: nombre('Nombre', 100),
+  nombre: nombre('Nombre'),
   email,
   password: passwordNueva,
   roles,
@@ -35,7 +35,7 @@ export const editUserSchema = newUserSchema.extend({
 export type UserInput = z.infer<typeof newUserSchema>;
 
 export const serviceSchema = z.object({
-  nombre: nombre('Nombre del servicio', 100),
+  nombre: nombre('Nombre del servicio'),
   precio,
 });
 

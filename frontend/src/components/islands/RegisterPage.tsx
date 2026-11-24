@@ -6,6 +6,7 @@ import { Button, LinkButton } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { apiClient } from '@/lib/api/apiClient';
 import { signUp } from '@/lib/auth/session';
+import { MAX_TEXTO } from '@/lib/workflow/validation';
 import { PASSWORD_HINT } from '@/schemas/common';
 import { registerSchema, type RegisterInput } from '@/schemas/login.schema';
 import { LoginLayout } from './LoginPage';
@@ -60,8 +61,8 @@ export default function RegisterPage() {
             {errors.root.message}
           </p>
         )}
-        <Input id="tallerNombre" label="Nombre del taller" autoFocus required leftIcon={<Building2 aria-hidden="true" />} error={errors.tallerNombre?.message} {...register('tallerNombre')} />
-        <Input id="nombre" label="Tu nombre" autoComplete="name" required leftIcon={<UserRound aria-hidden="true" />} error={errors.nombre?.message} {...register('nombre')} />
+        <Input id="tallerNombre" label="Nombre del taller" autoFocus required maxLength={MAX_TEXTO} leftIcon={<Building2 aria-hidden="true" />} error={errors.tallerNombre?.message} {...register('tallerNombre')} />
+        <Input id="nombre" label="Tu nombre" autoComplete="name" required maxLength={MAX_TEXTO} leftIcon={<UserRound aria-hidden="true" />} error={errors.nombre?.message} {...register('nombre')} />
         <Input id="email" label="Email" type="email" autoComplete="username" required leftIcon={<Mail aria-hidden="true" />} error={errors.email?.message} {...register('email')} />
         <Input id="password" label="Contraseña" type="password" autoComplete="new-password" required hint={PASSWORD_HINT} leftIcon={<Lock aria-hidden="true" />} error={errors.password?.message} {...register('password')} />
         <Input id="confirmar" label="Repetí la contraseña" type="password" autoComplete="new-password" required leftIcon={<Lock aria-hidden="true" />} error={errors.confirmar?.message} {...register('confirmar')} />

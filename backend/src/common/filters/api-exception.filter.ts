@@ -56,6 +56,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const res = host.switchToHttp().getResponse<Response>();
+    // Ya se respondió (ej. un pedido gigante que se cortó): no hay nada más que mandar
+    if (res.headersSent) return;
     let body: ErrorBody | null = null;
 
     if (exception instanceof PayloadTooLargeException) {

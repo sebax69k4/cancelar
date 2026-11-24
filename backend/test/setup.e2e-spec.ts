@@ -70,14 +70,35 @@ describe('Configuración inicial (e2e)', () => {
     expect(await mal({ password: 'solo-letras-largas' })).toContain('La contraseña tiene que combinar letras y números');
     expect(await mal({ password: '1234567890' })).toContain('La contraseña tiene que combinar letras y números');
     expect(await mal({ nombre: '1234' })).toContain('Tu nombre: tiene que tener letras');
-    expect(await mal({ tallerNombre: '!!!' })).toContain('Nombre del taller: tiene que tener letras');
-    expect(await mal({ email: `${'a'.repeat(250)}@x.com` })).toContain('El email no puede tener más de 254 caracteres');
+    // Máximo 40 caracteres en todos los campos (juntos: el registro admite 10 pedidos por minuto)
+    expect(await mal({ tallerNombre: 'x'.repeat(41), nombre: 'x'.repeat(41), email: `${'a'.repeat(36)}@x.co`, password: 'a1'.repeat(20) + 'x' })).toEqual([
+      'Nombre del taller: máximo 40 caracteres', 'Tu nombre: máximo 40 caracteres',
+      'El email no puede tener más de 40 caracteres', 'La contraseña no puede tener más de 40 caracteres',
+    ]);
+    // Caracteres especiales, invisibles y espacios (el detalle está en security.spec.ts)
+    expect(await mal({ tallerNombre: '<b>Taller</b>', nombre: '     ', email: 'a"b@x.com', password: ' clave-larga-1' })).toEqual([
+      "Nombre del taller: usá solo letras, números, espacios y . , ' & ( ) / + # _ -", 'Tu nombre: mínimo 2 caracteres',
+      'Ingresá un email válido', 'La contraseña no puede empezar ni terminar con espacios',
+    ]);
+    expect(await mal({ tallerNombre: '-Taller', password: 'clave\u200b-larga-1' })).toEqual([
+      'Nombre del taller: tiene que empezar con una letra o un número', 'La contraseña tiene caracteres invisibles que no se admiten',
+    ]);
+    // Lo mismo al ingresar: se rechaza antes de buscar la cuenta
+    const ingreso = async (email: string, password: string) =>
+      ((await anon().post('/api/auth/login').send({ email, password }).expect(400)).body as ErrBody).message;
+    expect(await ingreso(`${'a'.repeat(36)}@x.co`, clave)).toContain('El email no puede tener más de 40 caracteres');
+    expect(await ingreso('a@x.com', 'x'.repeat(41))).toContain('La contraseña no puede tener más de 40 caracteres');
+    expect(await ingreso('a<b>@x.com', clave)).toContain('Ingresá un email válido');
+    expect(await ingreso('a@x.com', ' clave')).toContain('La contraseña no puede empezar ni terminar con espacios');
     admin = request.agent(app.getHttpServer());
     const res = await admin.post('/api/auth/register')
-      .send({ tallerNombre: 'Taller Centro', nombre: 'Sofía Paz', email: 'Sofia@Taller.com', password: clave }).expect(201);
-    const u = res.body as { id: string; email: string; roles: string[] };
+      .send({ tallerNombre: '  Taller   Centro  ', nombre: ' Sofía  Paz ', email: '  Sofia@Taller.com ', password: clave }).expect(201);
+    const u = res.body as { id: string; email: string; nombre: string; roles: string[] };
     adminId = u.id;
-    expect(u).toMatchObject({ email: 'sofia@taller.com', roles: ['ADMIN'] });
+    // Los espacios de adelante, de atrás y dobles se quitan al guardar
+    expect(u).toMatchObject({ email: 'sofia@taller.com', nombre: 'Sofía Paz', roles: ['ADMIN'] });
+    expect((await admin.get('/api/setup/mine').expect(200)).body).toMatchObject({ tallerNombre: 'Taller Centro' });
+    await login('  SOFIA@taller.com  ');
     expect((await admin.get('/api/auth/me').expect(200)).body).toMatchObject({ roles: ['ADMIN'] });
   });
 

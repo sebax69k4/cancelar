@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { email, nombre, passwordNueva } from './common';
+import { email, nombre, passwordIngreso, passwordNueva } from './common';
 
 export const loginSchema = z.object({
-  email: z.email('Ingresá un email válido'),
-  password: z.string().min(1, 'Ingresá la contraseña'),
+  email,
+  password: passwordIngreso,
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -12,8 +12,8 @@ const repetida = 'Las contraseñas no coinciden';
 
 export const registerSchema = z
   .object({
-    tallerNombre: nombre('Nombre del taller', 100),
-    nombre: nombre('Tu nombre', 100),
+    tallerNombre: nombre('Nombre del taller'),
+    nombre: nombre('Tu nombre'),
     email,
     password: passwordNueva,
     confirmar: z.string().min(1, 'Repetí la contraseña'),

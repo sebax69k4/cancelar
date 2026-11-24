@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
-import { access, mkdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, rm, statfs, writeFile } from 'node:fs/promises';
 import { join, posix, resolve, sep } from 'node:path';
 import type { Env } from '../config/env';
 import { EXTENSION_EVIDENCIA } from './evidence.signature';
+
+/** Lugar libre que siempre queda en el disco: si se llena, se cae todo el sistema y no solo las evidencias. */
+const RESERVA_DISCO = 100 * 1024 * 1024;
 
 /**
  * Almacenamiento de evidencias en disco (UPLOAD_DIR/<ordenId>/<uuid>.<ext>).
@@ -29,6 +32,17 @@ export class EvidenceStorage {
     await mkdir(join(this.root, ordenId), { recursive: true });
     await writeFile(join(this.root, rel), buffer);
     return rel;
+  }
+
+  /** Queda lugar en el disco para otro archivo (si el sistema no lo informa, se intenta igual). */
+  async hayLugar(): Promise<boolean> {
+    try {
+      await mkdir(this.root, { recursive: true });
+      const d = await statfs(this.root);
+      return d.bavail * d.bsize > RESERVA_DISCO;
+    } catch {
+      return true;
+    }
   }
 
   absolute(rel: string): string {

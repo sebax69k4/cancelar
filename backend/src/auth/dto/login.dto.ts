@@ -1,15 +1,9 @@
-import { Transform } from 'class-transformer';
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
-import { trimString } from '../../common/text';
+import { Email, PasswordIngreso } from '../../common/validators';
 
 export class LoginDto {
-  @Transform(trimString)
-  @IsEmail({}, { message: 'Ingresá un email válido' })
-  @MaxLength(254, { message: 'Ingresá un email válido' })
+  @Email()
   email: string;
 
-  @IsString({ message: 'Ingresá la contraseña' })
-  @MinLength(1, { message: 'Ingresá la contraseña' })
-  @MaxLength(200)
+  @PasswordIngreso()
   password: string;
 }

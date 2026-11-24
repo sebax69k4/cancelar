@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Delete, Get, Header, Param, Patch, Post, Query, StreamableFile, UploadedFile, UseInterceptors,
+  Body, Controller, Delete, Get, Header, Param, Patch, Post, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
@@ -9,6 +9,7 @@ import {
   CommentDto, CreateOrderDto, EscalateDto, OrdersQuery, ReasonDto, ReopenDto, ResolveEscalationDto, TransitionDto, UpdateOrderDto,
 } from './orders.dto';
 import { OrdersService } from './orders.service';
+import { UploadGuard } from './upload.guard';
 
 @ApiTags('órdenes')
 @Controller('orders')
@@ -94,6 +95,7 @@ export class OrdersController {
 
   /** Multipart, campo `file`: imagen o PDF, máx. UPLOAD_MAX_MB. */
   @Post(':id/evidence')
+  @UseGuards(UploadGuard) // corre antes de leer el archivo
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })

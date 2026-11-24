@@ -21,7 +21,7 @@ import { formatMoney } from '@/lib/format';
 import { notifyError } from '@/lib/notify';
 import { navigate } from '@/lib/router';
 import { toast } from '@/lib/toast';
-import { PRECIO_MAX } from '@/lib/workflow/validation';
+import { MAX_TEXTO, PRECIO_MAX } from '@/lib/workflow/validation';
 import { PASSWORD_HINT, precio } from '@/schemas/common';
 import {
   editUserSchema, newUserSchema, serviceSchema, tallerSchema, type ServiceInput, type TallerInput, type UserInput,
@@ -109,7 +109,7 @@ function TallerCard({ progress }: { progress: SetupProgress }) {
       <CardHeader icon={<Building2 aria-hidden="true" />} title="1. Datos del taller" />
       <CardBody>
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid items-start gap-4 md:grid-cols-3">
-          <Input id="taller-nombre" label="Nombre" required error={errors.nombre?.message} {...register('nombre')} />
+          <Input id="taller-nombre" label="Nombre" required maxLength={MAX_TEXTO} error={errors.nombre?.message} {...register('nombre')} />
           <Input id="taller-telefono" label="Teléfono" type="tel" autoComplete="tel" error={errors.telefono?.message} {...register('telefono')} />
           <Input id="taller-direccion" label="Dirección" error={errors.direccion?.message} {...register('direccion')} />
           <div className="md:col-span-3">
@@ -168,7 +168,7 @@ function UserModal({ user, open, onClose }: { user: UsuarioAdmin | null; open: b
       }
     >
       <form onSubmit={handleSubmit(save)} noValidate className="flex flex-col gap-4">
-        <Input id="usuario-nombre" label="Nombre" required data-autofocus error={errors.nombre?.message} {...register('nombre')} />
+        <Input id="usuario-nombre" label="Nombre" required maxLength={MAX_TEXTO} data-autofocus error={errors.nombre?.message} {...register('nombre')} />
         <Input id="usuario-email" label="Email" type="email" required disabled={user !== null} error={errors.email?.message} {...register('email')} />
         <Input
           id="usuario-password"
@@ -339,7 +339,7 @@ function ServicesCard() {
           ))}
         </ul>
         <form onSubmit={handleSubmit(add)} noValidate className="flex flex-wrap items-start gap-3">
-          <Input id="servicio-nuevo" label="Servicio nuevo" wrapperClassName="min-w-48 flex-1" error={errors.nombre?.message} {...register('nombre')} />
+          <Input id="servicio-nuevo" label="Servicio nuevo" maxLength={MAX_TEXTO} wrapperClassName="min-w-48 flex-1" error={errors.nombre?.message} {...register('nombre')} />
           <Input
             id="servicio-precio"
             label="Precio"
