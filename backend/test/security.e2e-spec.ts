@@ -67,7 +67,7 @@ describe('Seguridad y validaciones (e2e)', () => {
     sup = await login('supervisor@serviciotecnico.local');
     recep = await login('recepcion@serviciotecnico.local');
     tec = await login('carlos@serviciotecnico.local');
-    const users = (await sup.get('/api/users').expect(200)).body as (Id & { email: string })[];
+    const users = (await admin.get('/api/setup/users').expect(200)).body as (Id & { email: string })[];
     const id = (email: string) => users.find((u) => u.email === email)!.id;
     adminId = id('admin@serviciotecnico.local');
     tecId = id('carlos@serviciotecnico.local');
@@ -408,6 +408,58 @@ describe('Seguridad y validaciones (e2e)', () => {
   });
 
   // ---------------------------------------------------------------- cabeceras y configuración
+
+  describe('la API abierta como página', () => {
+    const navegar = (agent: Agent, url: string) =>
+      agent.get(url).set('Sec-Fetch-Mode', 'navigate').set('Sec-Fetch-Dest', 'document').set('Accept', 'text/html,application/xhtml+xml');
+
+    it('da el mismo 404 exista o no la dirección, con sesión o sin ella', async () => {
+      const inventada = await navegar(anon(), '/api/inventada');
+      for (const url of [`/api/orders/${orden.id}`, '/api/orders', '/api/clients', '/api/users', '/api/setup/users', '/api/auth/me', '/api/setup/status', '/api/dashboard', '/api/orders/no-existe']) {
+        for (const quien of [admin, anon()]) {
+          const r = await navegar(quien, url);
+          expect([url, r.status, r.text]).toEqual([url, 404, inventada.text]);
+          expect(Object.keys(r.headers).sort()).toEqual(Object.keys(inventada.headers).sort());
+        }
+      }
+      expect(inventada.text).not.toMatch(/statusCode|message|api/i);
+    });
+
+    it('también en marcos y en navegadores que no mandan Sec-Fetch', async () => {
+      await admin.get(`/api/orders/${orden.id}`).set('Sec-Fetch-Mode', 'navigate').set('Sec-Fetch-Dest', 'iframe').expect(404);
+      await admin.get(`/api/orders/${orden.id}`).set('Accept', 'text/html,*/*;q=0.8').expect(404);
+    });
+
+    it('la app sigue pidiendo datos, y nada queda guardado en caché', async () => {
+      const r = await admin.get(`/api/orders/${orden.id}`).set('Sec-Fetch-Mode', 'cors').set('Sec-Fetch-Dest', 'empty').set('Accept', '*/*').expect(200);
+      expect(r.headers['cache-control']).toBe('no-store');
+      await navegar(anon(), '/api/health').expect(200);
+    });
+
+    it('una evidencia se abre con sesión; sin sesión o sin permiso es un 404 más', async () => {
+      const inventada = await navegar(anon(), '/api/inventada');
+      const { evidencias } = (await tec.get(`/api/orders/${orden.id}`).expect(200)).body as { evidencias: Id[] };
+      const url = `/api/orders/${orden.id}/evidence/${evidencias[0]!.id}/file`;
+      await navegar(tec, url).expect(200);
+      const julieta = await login('julieta@serviciotecnico.local');
+      for (const quien of [anon(), julieta]) {
+        const r = await navegar(quien, url);
+        expect([r.status, r.text]).toEqual([404, inventada.text]);
+      }
+      await anon().get(url).expect(401); // pedida por la app, sí avisa que hay que ingresar
+    });
+
+    it('las órdenes y la lista de personas no muestran el email con el que se ingresa', async () => {
+      const textos = [
+        (await tec.get(`/api/orders/${orden.id}`).expect(200)).text, (await admin.get('/api/orders').expect(200)).text,
+        (await recep.get('/api/users').expect(200)).text, (await sup.get('/api/dashboard').expect(200)).text, (await sup.get('/api/alerts').expect(200)).text,
+      ];
+      for (const t of textos) {
+        expect(t).not.toMatch(/@serviciotecnico\.local/);
+        expect(t).not.toMatch(/passwordHash|argon2|sesionesDesde|tallerId/);
+      }
+    });
+  });
 
   describe('cabeceras y configuración', () => {
     it('envía las cabeceras de seguridad y no revela la tecnología', async () => {

@@ -32,6 +32,11 @@ export function toUsuario(u: Usuario) {
   return { id: u.id, nombre: u.nombre, email: u.email, roles: u.roles };
 }
 
+/** Una persona vista por sus compañeros. Sin el email: es con lo que se ingresa, y nadie más lo necesita. */
+export function toPersona(u: Usuario) {
+  return { id: u.id, nombre: u.nombre, roles: u.roles };
+}
+
 export function toCliente(c: Cliente) {
   return {
     id: c.id,
@@ -143,8 +148,8 @@ export function toOrdenResumen(o: OrdenFull, nowMs: number = Date.now()) {
     cliente: toCliente(o.cliente),
     equipo: toEquipo(o.equipo),
     servicio: toServicio(o.servicio),
-    responsable: toUsuario(o.responsable),
-    tecnico: o.tecnico ? toUsuario(o.tecnico) : null,
+    responsable: toPersona(o.responsable),
+    tecnico: o.tecnico ? toPersona(o.tecnico) : null,
     horasAbierta: hoursOpen(o, nowMs),
     atrasada: isOverdue(o, nowMs),
     criticaVencida: isCriticalOverdue(o, nowMs),

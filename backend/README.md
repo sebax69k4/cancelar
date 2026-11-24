@@ -224,6 +224,7 @@ Las reglas están en `src/domain/validation.ts` (copia en `frontend/src/lib/work
 
 - **Nombres** (personas, clientes, taller, servicios; también marca y modelo): de 2 a **40 caracteres** (`MAX_TEXTO`), con al menos una letra. Solo letras, números, espacios y `. , ' & ( ) / + # _ -`, empezando con letra o número. Los espacios de adelante, de atrás y dobles se quitan; los caracteres invisibles se rechazan.
 - **Textos libres** (falla, diagnóstico, solución, comentarios, motivos, informes, notas, dirección): admiten cualquier símbolo visible y emojis, pero tienen que tener palabras o números. Se quitan los caracteres invisibles, de control y los que invierten el texto, y los espacios de las puntas. Cada uno tiene su largo máximo (`MAX_FALLA`, `MAX_DETALLE`, `MAX_COMENTARIO`…).
+- **La API no se puede abrir como página** (`common/navegacion.ts`): en la barra de direcciones cualquier ruta responde el mismo 404, exista o no y haya o no sesión (salvo ver una evidencia y `/api/health`). Las respuestas van con `Cache-Control: no-store`. Las órdenes y `/api/users` no incluyen el email de las personas.
 - **En toda la API** (`common/safe-text.ts`): el carácter nulo, los caracteres rotos, las direcciones mal codificadas y los cuerpos muy anidados responden 400.
 - **Número de serie**: letras, números y `- _ / .`, empezando con letra o número.
 - **Teléfono**: solo números, espacios, `+` (al principio), `-` y paréntesis de a pares, de 6 a 15 dígitos. El del taller es opcional.

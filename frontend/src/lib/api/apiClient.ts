@@ -3,7 +3,7 @@
  * (HttpApiClient: fetch con la cookie de sesión contra PUBLIC_API_URL).
  */
 import type {
-  CausaEscalamiento, Cliente, Equipo, EstadoOrden, Impacto, InformeCritico, OrdenResumen, Prioridad,
+  CausaEscalamiento, Cliente, Equipo, EstadoOrden, Impacto, InformeCritico, OrdenResumen, PersonaTaller, Prioridad,
   ResolucionEscalamiento, Rol, Servicio, TipoEquipo, Urgencia, Usuario,
 } from '@/types/domain';
 import { API_URL } from './config';
@@ -177,7 +177,7 @@ export interface ApiClient {
   updateService(id: string, input: UpdateServiceInput): Promise<ServicioAdmin>;
   changePassword(actual: string, nueva: string): Promise<void>;
 
-  getUsers(): Promise<Usuario[]>;
+  getUsers(): Promise<PersonaTaller[]>;
   getServices(): Promise<Servicio[]>;
 
   getClients(q?: string): Promise<Cliente[]>;

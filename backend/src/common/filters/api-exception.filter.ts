@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger, PayloadTooLargeException } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { esNavegacion, paginaNoEncontrada } from '../navegacion';
 import { eventoSeguridad } from '../security-log';
 import { Prisma } from '../../generated/prisma/client';
 
@@ -91,6 +92,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
         ip: req.ip, usuario: req.user?.id, metodo: req.method, ruta: req.path,
       });
     }
+    // Un archivo abierto como página sin sesión o sin permiso: igual que si no existiera
+    if ([401, 403, 404].includes(body.statusCode) && esNavegacion(host.switchToHttp().getRequest<Request>())) return paginaNoEncontrada(res);
     res.status(body.statusCode).json(body);
   }
 }
