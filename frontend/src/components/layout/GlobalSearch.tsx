@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api/apiClient';
 import { queryKeys } from '@/lib/api/queryClient';
 import { cn } from '@/lib/cn';
 import { navigate } from '@/lib/router';
+import { MAX_BUSQUEDA } from '@/lib/workflow/validation';
 
 const MAX_ORDERS = 6;
 const MAX_CLIENTS = 3;
@@ -110,6 +111,7 @@ export function GlobalSearch() {
           id="global-search"
           type="search"
           role="combobox"
+          maxLength={MAX_BUSQUEDA}
           aria-label="Buscar orden por número, cliente, teléfono o número de serie"
           aria-expanded={showPanel}
           aria-controls={listId}

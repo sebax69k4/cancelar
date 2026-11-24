@@ -292,7 +292,7 @@ describe('Seguridad y validaciones (e2e)', () => {
     it('guarda con la extensión del tipo real y sirve el archivo aislado', async () => {
       const res = await subir(tec, fakeJpeg(), 'shell.php\r\nX-Inyectada: 1', 'image/jpeg').expect(201);
       const ev = (res.body as { evidencias: (Id & { nombreArchivo: string })[] }).evidencias.find((e) => e.nombreArchivo.startsWith('shell.php'))!;
-      expect(ev.nombreArchivo).toBe('shell.phpX-Inyectada: 1'); // sin saltos de línea
+      expect(ev.nombreArchivo).toBe('shell.phpX-Inyectada 1'); // sin saltos de línea
       const guardada = await prisma.evidencia.findUniqueOrThrow({ where: { id: ev.id } });
       expect(guardada.ruta).toMatch(/\.jpg$/); // nunca .php
 
@@ -448,6 +448,41 @@ describe('Seguridad y validaciones (e2e)', () => {
       for (const nombre of ['Al', 'Ñandú Pérez', "D'Angelo", 'x'.repeat(40), '  Ana con espacios  ', 'Pérez & Cía. (Suc. 2)']) {
         expect({ nombre, status: (await alta({ nombre })).status }).toEqual({ nombre, status: 201 });
       }
+    });
+
+    it('ningún campo responde 500 con caracteres imposibles, fechas raras o null', async () => {
+      const nulo = 'Texto con nulo \0 adentro';
+      const base = { clienteId: cliente.id, equipoId: equipo.id, servicioId, responsableId: adminId, fallaReportada: 'No enciende para nada', impacto: 'BAJO', urgencia: 'BAJA', fechaEstimada: en3dias() };
+      for (const campo of ['clienteId', 'fallaReportada', 'tecnicoId']) {
+        expect([campo, (await recep.post('/api/orders').send({ ...base, [campo]: nulo })).status]).toEqual([campo, 400]);
+      }
+      for (const fechaEstimada of ['2026-W50', '2026-350', '20270101', '2027-02-30', '2027-13-01', 'mañana', '', 5]) {
+        expect([fechaEstimada, (await recep.post('/api/orders').send({ ...base, fechaEstimada })).status]).toEqual([fechaEstimada, 400]);
+      }
+      for (const url of ['/api/orders/%00', '/api/orders?q=%00', '/api/clients?q=a%00b', '/api/equipment?clientId=%00', '/api/orders?ownerId=%00', '/api/orders/%E0%A4%A']) {
+        expect([url, (await recep.get(url)).status]).toEqual([url, 400]);
+      }
+      for (const campo of ['nombre', 'roles', 'activo', 'password']) {
+        expect([campo, (await admin.patch(`/api/setup/users/${tecId}`).send({ [campo]: null })).status]).toEqual([campo, 400]);
+      }
+      for (const campo of ['nombre', 'precioBase', 'activo']) {
+        expect([campo, (await admin.patch(`/api/setup/services/${servicioId}`).send({ [campo]: null })).status]).toEqual([campo, 400]);
+      }
+      await sup.patch(`/api/orders/${orden.id}`).send({ responsableId: null }).expect(400);
+      const profundo = await recep.post('/api/clients').set('Content-Type', 'application/json').send('['.repeat(20_000) + ']'.repeat(20_000));
+      expect(profundo.status).toBe(400);
+      const roto = await recep.post('/api/clients').set('Content-Type', 'application/json').send('{"nombre": ');
+      expect((roto.body as ErrBody).message).toBe('El cuerpo de la solicitud no es un JSON válido');
+    });
+
+    it('los textos libres se guardan limpios y tienen que tener palabras', async () => {
+      const c = (await recep.post('/api/clients').send({ nombre: 'Ana', telefono: telefono(), notas: '  Pantalla\u200b 15.6" \u202e<60Hz\u0007  ' }).expect(201)).body as { notas: string };
+      expect(c.notas).toBe('Pantalla 15.6" <60Hz');
+      const r = await recep.post('/api/clients').send({ nombre: 'Ana', telefono: telefono(), notas: '!!!!' }).expect(400);
+      expect((r.body as ErrBody).message).toEqual(['Notas: escribí palabras o números, no solo signos']);
+      await sup.post(`/api/orders/${orden.id}/block`).send({ motivo: '!!!!!!!!!!!!' }).expect(400);
+      await sup.post(`/api/orders/${orden.id}/block`).send({ motivo: '\u200b'.repeat(20) }).expect(400);
+      expect(((await recep.post('/api/clients').send({ nombre: 'Ana', telefono: ['x'] }).expect(400)).body as ErrBody).message).toEqual(['Ingresá el teléfono']);
     });
 
     it('teléfono de cliente', async () => {

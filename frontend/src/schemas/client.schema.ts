@@ -1,11 +1,12 @@
 import { z } from 'zod';
-import { email, nombre, telefono } from './common';
+import { MAX_NOTAS } from '@/lib/workflow/validation';
+import { email, nombre, telefono, textoLibre } from './common';
 
 export const clientSchema = z.object({
   nombre: nombre('Nombre'),
   telefono,
   email: z.union([z.literal(''), email]),
-  notas: z.string().trim().max(300, 'Máximo 300 caracteres'),
+  notas: textoLibre('Notas', MAX_NOTAS),
 });
 
 export type ClientInput = z.infer<typeof clientSchema>;

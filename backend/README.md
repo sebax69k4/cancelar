@@ -223,11 +223,14 @@ Todas las rutas llevan el prefijo `/api` y requieren sesión, salvo `health`, `a
 Las reglas están en `src/domain/validation.ts` (copia en `frontend/src/lib/workflow/validation.ts`), y se aplican con los decoradores de `src/common/validators.ts`. El frontend las muestra campo por campo antes de enviar; el backend las vuelve a controlar siempre.
 
 - **Nombres** (personas, clientes, taller, servicios; también marca y modelo): de 2 a **40 caracteres** (`MAX_TEXTO`), con al menos una letra. Solo letras, números, espacios y `. , ' & ( ) / + # _ -`, empezando con letra o número. Los espacios de adelante, de atrás y dobles se quitan; los caracteres invisibles se rechazan.
-- **Teléfono**: solo números, espacios, `+`, `-` y paréntesis, de 6 a 15 dígitos. El del taller es opcional.
+- **Textos libres** (falla, diagnóstico, solución, comentarios, motivos, informes, notas, dirección): admiten cualquier símbolo visible y emojis, pero tienen que tener palabras o números. Se quitan los caracteres invisibles, de control y los que invierten el texto, y los espacios de las puntas. Cada uno tiene su largo máximo (`MAX_FALLA`, `MAX_DETALLE`, `MAX_COMENTARIO`…).
+- **En toda la API** (`common/safe-text.ts`): el carácter nulo, los caracteres rotos, las direcciones mal codificadas y los cuerpos muy anidados responden 400.
+- **Número de serie**: letras, números y `- _ / .`, empezando con letra o número.
+- **Teléfono**: solo números, espacios, `+` (al principio), `-` y paréntesis de a pares, de 6 a 15 dígitos. El del taller es opcional.
 - **Email**: formato válido sin caracteres raros, hasta 40 caracteres, se guarda en minúsculas y sin espacios. Vale igual al ingresar.
 - **Contraseña nueva**: de 8 a 40 caracteres, con letras y números; admite símbolos, pero no espacios en las puntas ni caracteres invisibles. Al ingresar se controlan el largo, las puntas y los invisibles. En el registro y en «Mi cuenta» hay que repetirla, y la nueva tiene que ser distinta de la actual.
 - **Servicios**: el nombre no se repite dentro del taller (sin importar mayúsculas); el precio es un entero de 0 a 100.000.000.
-- **Fecha estimada de la orden**: de hoy a 365 días.
+- **Fecha estimada de la orden**: de hoy a 365 días, y tiene que existir (no el 30 de febrero).
 - **Búsquedas**: hasta 100 caracteres.
 - **Evidencias**: hasta **10 MB** por archivo (`MAX_EVIDENCIA_MB`). `UPLOAD_MAX_MB` en `.env` solo puede bajarlo: con un valor mayor a 10 el backend no arranca. Hasta 30 archivos por orden.
 - **Subidas pesadas** (scripts por fuera del navegador): un pedido demasiado grande se corta sin recibirlo entero, con o sin `Content-Length` y con o sin sesión (`common/body-limit.ts`). El permiso sobre la orden se controla antes de leer el archivo, y cada persona puede subir 3 archivos a la vez, 30 por minuto y 150 por hora; en total, 6 a la vez (`orders/upload.guard.ts`). No se aceptan campos de texto ni un segundo archivo, y siempre quedan 100 MB libres en el disco.

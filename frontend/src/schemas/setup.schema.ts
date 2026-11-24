@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { MIN_PASSWORD } from '@/lib/workflow/setup';
 import { ROLES } from '@/types/domain';
-import { email, nombre, passwordNueva, precio, telefonoOpcional } from './common';
-import { problemaPassword } from '@/lib/workflow/validation';
+import { email, nombre, passwordNueva, precio, telefonoOpcional, textoLibre } from './common';
+import { MAX_DIRECCION, problemaPassword } from '@/lib/workflow/validation';
 
 export const tallerSchema = z.object({
   nombre: nombre('Nombre del taller'),
   telefono: telefonoOpcional,
-  direccion: z.string().trim().max(200, 'Máximo 200 caracteres'),
+  direccion: textoLibre('Dirección', MAX_DIRECCION),
 });
 
 export type TallerInput = z.infer<typeof tallerSchema>;

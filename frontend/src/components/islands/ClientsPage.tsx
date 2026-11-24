@@ -16,6 +16,7 @@ import { useEquipment } from '@/hooks/useEquipment';
 import { useOrders } from '@/hooks/useOrders';
 import { errorMessage } from '@/lib/api/errors';
 import { formatDate } from '@/lib/format';
+import { MAX_BUSQUEDA } from '@/lib/workflow/validation';
 
 function Content({ onNew }: { onNew: () => void }) {
   const [q, setQ] = useState('');
@@ -72,6 +73,7 @@ function Content({ onNew }: { onNew: () => void }) {
           type="search"
           wrapperClassName="w-full sm:max-w-sm"
           leftIcon={<Search aria-hidden="true" />}
+          maxLength={MAX_BUSQUEDA}
           placeholder="Nombre, teléfono o email"
           value={q}
           onChange={(e) => setQ(e.target.value)}

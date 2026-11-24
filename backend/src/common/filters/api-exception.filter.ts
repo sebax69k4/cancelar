@@ -10,16 +10,24 @@ interface ErrorBody {
   details?: string[];
 }
 
+/** Mensajes que arma el framework en inglés: se muestran en castellano (y sin repetir lo que mandó el cliente). */
+function enCastellano(status: number, mensaje: string): string {
+  if (status === 429 && mensaje.startsWith('ThrottlerException')) return 'Demasiados pedidos seguidos. Esperá un minuto y volvé a probar.';
+  if (status === 404 && mensaje.startsWith('Cannot ')) return 'La dirección no existe';
+  if (status === 400 && /JSON|^Unexpected /.test(mensaje)) return 'El cuerpo de la solicitud no es un JSON válido';
+  if (status === 400 && mensaje.startsWith('Failed to decode')) return 'La dirección está mal escrita';
+  if (status === 400 && /^(Unexpected field|Too many|Field |Multipart|Malformed|File name|Boundary)/i.test(mensaje)) return 'Mandá un solo archivo, sin otros datos';
+  return mensaje;
+}
+
 function fromHttpException(e: HttpException): ErrorBody {
   const status = e.getStatus();
   const res = e.getResponse();
-  if (typeof res === 'string') return { statusCode: status, message: res };
+  if (typeof res === 'string') return { statusCode: status, message: enCastellano(status, res) };
   const r = res as { message?: unknown; details?: unknown };
   const message = Array.isArray(r.message)
     ? r.message.filter((m): m is string => typeof m === 'string')
-    : typeof r.message === 'string'
-      ? r.message
-      : e.message;
+    : enCastellano(status, typeof r.message === 'string' ? r.message : e.message);
   const details = Array.isArray(r.details) ? r.details.filter((d): d is string => typeof d === 'string') : undefined;
   return { statusCode: status, message, ...(details?.length ? { details } : {}) };
 }

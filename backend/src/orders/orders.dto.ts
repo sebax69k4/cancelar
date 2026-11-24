@@ -1,32 +1,32 @@
-import { Transform } from 'class-transformer';
-import { IsEnum, IsIn, IsISO8601, IsNotEmpty, IsOptional, IsString, Length, MaxLength } from 'class-validator';
-import { trimString } from '../common/text';
+import { IsEnum, IsIn, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { Fecha, IdRegistro, SiViene, TextoLibre } from '../common/validators';
 import { CAUSAS_MANUALES } from '../domain/escalation';
 import { MIN_COMENTARIO, MIN_MOTIVO, REOPEN_TARGETS } from '../domain/transitions';
-import { MAX_BUSQUEDA } from '../domain/validation';
+import { MAX_BUSQUEDA, MAX_COMENTARIO, MAX_DETALLE, MAX_FALLA } from '../domain/validation';
 import {
   EstadoOrden, Impacto, Prioridad, ResolucionEscalamiento, Urgencia, type CausaEscalamiento,
 } from '../generated/prisma/enums';
 
+/** El técnico se puede dejar sin asignar (vacío o null). */
+const conTecnico = () => ValidateIf((_o, v) => v !== undefined && v !== null && v !== '');
+
 export class CreateOrderDto {
-  @IsString() @IsNotEmpty({ message: 'Falta el cliente' })
+  @IdRegistro('Falta el cliente')
   clienteId: string;
 
-  @IsString() @IsNotEmpty({ message: 'Falta el equipo' })
+  @IdRegistro('Falta el equipo')
   equipoId: string;
 
-  @IsString() @IsNotEmpty({ message: 'Falta el servicio' })
+  @IdRegistro('Falta el servicio')
   servicioId: string;
 
-  @IsString() @IsNotEmpty({ message: 'Falta el responsable' })
+  @IdRegistro('Falta el responsable')
   responsableId: string;
 
-  @IsOptional() @IsString()
+  @conTecnico() @IdRegistro('El técnico asignado no es válido')
   tecnicoId?: string | null;
 
-  @Transform(trimString)
-  @IsString()
-  @Length(MIN_MOTIVO, 1000, { message: `Describí la falla (entre ${MIN_MOTIVO} y 1000 caracteres)` })
+  @TextoLibre('Falla reportada', MAX_FALLA, { min: MIN_MOTIVO, siEsCorto: `Describí la falla (entre ${MIN_MOTIVO} y ${MAX_FALLA} caracteres)` })
   fallaReportada: string;
 
   @IsEnum(Impacto, { message: 'Elegí el impacto' })
@@ -35,30 +35,30 @@ export class CreateOrderDto {
   @IsEnum(Urgencia, { message: 'Elegí la urgencia' })
   urgencia: Urgencia;
 
-  @IsISO8601({}, { message: 'Fecha estimada inválida' })
+  @Fecha('Fecha estimada inválida')
   fechaEstimada: string;
 }
 
 export class UpdateOrderDto {
-  @Transform(trimString) @IsOptional() @IsString() @MaxLength(2000)
+  @TextoLibre('Diagnóstico', MAX_DETALLE, { opcional: true })
   diagnostico?: string | null;
 
-  @Transform(trimString) @IsOptional() @IsString() @MaxLength(2000)
+  @TextoLibre('Solución', MAX_DETALLE, { opcional: true })
   solucion?: string | null;
 
-  @IsOptional() @IsString()
+  @conTecnico() @IdRegistro('Técnico inválido')
   tecnicoId?: string | null;
 
-  @IsOptional() @IsString() @IsNotEmpty()
+  @SiViene() @IdRegistro('Responsable inválido')
   responsableId?: string;
 
-  @IsOptional() @IsEnum(Impacto)
+  @SiViene() @IsEnum(Impacto, { message: 'Elegí el impacto' })
   impacto?: Impacto;
 
-  @IsOptional() @IsEnum(Urgencia)
+  @SiViene() @IsEnum(Urgencia, { message: 'Elegí la urgencia' })
   urgencia?: Urgencia;
 
-  @Transform(trimString) @IsOptional() @IsString() @MaxLength(500)
+  @TextoLibre('Comentario', MAX_COMENTARIO, { opcional: true })
   comentario?: string;
 }
 
@@ -69,17 +69,17 @@ export class TransitionDto {
   @IsEnum(EstadoOrden, { message: 'Estado de destino inválido' })
   to: EstadoOrden;
 
-  @Transform(trimString) @IsString({ message: comentarioMsg }) @Length(MIN_COMENTARIO, 500, { message: comentarioMsg })
+  @TextoLibre('Comentario', MAX_COMENTARIO, { min: MIN_COMENTARIO, siEsCorto: comentarioMsg })
   comentario: string;
 }
 
 export class CommentDto {
-  @Transform(trimString) @IsString({ message: comentarioMsg }) @Length(MIN_COMENTARIO, 500, { message: comentarioMsg })
+  @TextoLibre('Comentario', MAX_COMENTARIO, { min: MIN_COMENTARIO, siEsCorto: comentarioMsg })
   comentario: string;
 }
 
 export class ReasonDto {
-  @Transform(trimString) @IsString({ message: motivoMsg }) @Length(MIN_MOTIVO, 500, { message: motivoMsg })
+  @TextoLibre('Motivo', MAX_COMENTARIO, { min: MIN_MOTIVO, siEsCorto: motivoMsg })
   motivo: string;
 }
 
@@ -98,28 +98,28 @@ export class ResolveEscalationDto {
   resolucion: ResolucionEscalamiento;
 
   /** Qué se resolvió; en «sin reparación», el informe para el cliente. */
-  @Transform(trimString) @IsString({ message: motivoMsg }) @Length(MIN_MOTIVO, 1000, { message: `El detalle es obligatorio (mínimo ${MIN_MOTIVO} caracteres)` })
+  @TextoLibre('Detalle', MAX_FALLA, { min: MIN_MOTIVO, siEsCorto: `El detalle es obligatorio (mínimo ${MIN_MOTIVO} caracteres)` })
   texto: string;
 
   /** Reasignar el técnico (solo al continuar). */
-  @IsOptional() @IsString()
+  @conTecnico() @IdRegistro('Técnico inválido')
   tecnicoId?: string;
 
   /** Constancia de aviso al cliente (obligatoria si se resuelve sin reparación). */
-  @Transform(trimString) @IsOptional() @IsString() @MaxLength(500)
+  @TextoLibre('Constancia de aviso', MAX_COMENTARIO, { opcional: true })
   avisoCliente?: string;
 }
 
 export class OrdersQuery {
-  @IsOptional() @IsString() @MaxLength(MAX_BUSQUEDA, { message: `La búsqueda no puede tener más de ${MAX_BUSQUEDA} caracteres` })
+  @IsOptional() @IsString({ message: 'Búsqueda inválida' }) @MaxLength(MAX_BUSQUEDA, { message: `La búsqueda no puede tener más de ${MAX_BUSQUEDA} caracteres` })
   q?: string;
 
-  @IsOptional() @IsEnum(EstadoOrden)
+  @IsOptional() @IsEnum(EstadoOrden, { message: 'Estado inválido' })
   status?: EstadoOrden;
 
-  @IsOptional() @IsEnum(Prioridad)
+  @IsOptional() @IsEnum(Prioridad, { message: 'Prioridad inválida' })
   priority?: Prioridad;
 
-  @IsOptional() @IsString() @MaxLength(50)
+  @IsOptional() @IdRegistro('Persona inválida')
   ownerId?: string;
 }

@@ -144,6 +144,8 @@ export function problemaEvidencia(mime: string, contenido: Buffer): string | nul
  */
 export function nombreSeguro(original: string): string {
   const base = original.split(/[\\/]/).pop() ?? '';
-  const limpio = base.replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 200);
-  return limpio === '' || /^\.+$/.test(limpio) ? 'archivo' : limpio;
+  const limpio = base.normalize('NFC').replace(/[\p{Cc}\p{Cf}\p{Co}\p{Cs}<>"|?*:]/gu, '').replace(/\s+/g, ' ').trim();
+  // Se corta por caracteres y no por unidades: medio emoji no se puede guardar ni mandar en una cabecera
+  const corto = Array.from(limpio).slice(0, 200).join('').trim();
+  return corto === '' || /^\.+$/.test(corto) ? 'archivo' : corto;
 }

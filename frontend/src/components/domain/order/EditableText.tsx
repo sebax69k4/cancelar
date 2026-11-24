@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pencil, Save } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
+import { MAX_DETALLE, limpiarTexto, problemaTexto } from '@/lib/workflow/validation';
 
 export interface EditableTextProps {
   id: string;
@@ -61,12 +62,14 @@ export function EditableText({
       className="flex flex-col gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        if (draft.trim().length < minLength) {
-          setError(`Mínimo ${minLength} caracteres`);
+        const texto = limpiarTexto(draft);
+        const problema = problemaTexto(label, texto, minLength, MAX_DETALLE);
+        if (problema) {
+          setError(problema);
           return;
         }
         setError(undefined);
-        void onSave(draft.trim()).then(() => setEditing(false), () => undefined);
+        void onSave(texto).then(() => setEditing(false), () => undefined);
       }}
     >
       <Textarea

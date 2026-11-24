@@ -1,8 +1,6 @@
-import { Transform } from 'class-transformer';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
-import { trimString } from '../common/text';
-import { EmailOpcional, Nombre, Telefono } from '../common/validators';
-import { MAX_BUSQUEDA } from '../domain/validation';
+import { EmailOpcional, Nombre, Telefono, TextoLibre } from '../common/validators';
+import { MAX_BUSQUEDA, MAX_NOTAS } from '../domain/validation';
 
 export class CreateClientDto {
   @Nombre('Nombre')
@@ -14,16 +12,13 @@ export class CreateClientDto {
   @EmailOpcional()
   email?: string | null;
 
-  @Transform(trimString)
-  @IsOptional()
-  @IsString()
-  @MaxLength(300, { message: 'Notas: máximo 300 caracteres' })
+  @TextoLibre('Notas', MAX_NOTAS, { opcional: true })
   notas?: string | null;
 }
 
 export class ClientsQuery {
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Búsqueda inválida' })
   @MaxLength(MAX_BUSQUEDA, { message: `La búsqueda no puede tener más de ${MAX_BUSQUEDA} caracteres` })
   q?: string;
 }

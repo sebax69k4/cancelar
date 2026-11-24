@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { MIN_PASSWORD } from '@/lib/workflow/setup';
 import {
-  MAX_PASSWORD, PRECIO_MAX, limpiarNombre, problemaEmail, problemaNombre, problemaPassword, problemaPasswordEscrita, problemaTelefono,
+  MAX_PASSWORD, PRECIO_MAX, limpiarNombre, limpiarTexto, problemaEmail, problemaNombre, problemaPassword, problemaPasswordEscrita,
+  problemaTelefono, problemaTexto,
 } from '@/lib/workflow/validation';
 
 /** Pasa la regla compartida con el backend (devuelve el problema o null) a un esquema de zod. */
@@ -25,24 +26,16 @@ export function textoCorto(campo: string) {
   return conRegla(limpiarNombre, (v) => problemaNombre(campo, v, 1, false));
 }
 
+/** Texto libre (falla, comentarios, notas…). Con min 0 se puede dejar vacío. */
+export function textoLibre(campo: string, max: number, min = 0, siEsCorto?: string) {
+  return conRegla(limpiarTexto, (v) => problemaTexto(campo, v, min, max, siEsCorto));
+}
+
 /** Teléfono obligatorio. */
-export const telefono = z
-  .string()
-  .trim()
-  .min(1, 'Ingresá el teléfono')
-  .superRefine((v, ctx) => {
-    const p = v === '' ? null : problemaTelefono(v);
-    if (p) ctx.addIssue({ code: 'custom', message: p });
-  });
+export const telefono = conRegla(limpiarNombre, (v) => (v === '' ? 'Ingresá el teléfono' : problemaTelefono(v)));
 
 /** Teléfono que se puede dejar vacío. */
-export const telefonoOpcional = z
-  .string()
-  .trim()
-  .superRefine((v, ctx) => {
-    const p = v === '' ? null : problemaTelefono(v);
-    if (p) ctx.addIssue({ code: 'custom', message: p });
-  });
+export const telefonoOpcional = conRegla(limpiarNombre, (v) => (v === '' ? null : problemaTelefono(v)));
 
 export const email = conRegla((v) => v.trim().toLowerCase(), problemaEmail);
 

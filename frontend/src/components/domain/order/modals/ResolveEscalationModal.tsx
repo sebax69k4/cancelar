@@ -9,6 +9,7 @@ import type { ResolveEscalationInput } from '@/lib/api/apiClient';
 import { RESOLUCION_LABEL } from '@/lib/domain/labels';
 import { MIN_INFORME, RESOLUCIONES_SIN_REPARACION, sinReparacionMissing } from '@/lib/workflow/escalation';
 import { MIN_MOTIVO } from '@/lib/workflow/transitions';
+import { MAX_COMENTARIO, MAX_FALLA, limpiarTexto, problemaTexto } from '@/lib/workflow/validation';
 import { RESOLUCIONES, type OrdenResumen, type ResolucionEscalamiento } from '@/types/domain';
 
 export interface ResolveEscalationModalProps {
@@ -43,9 +44,15 @@ export function ResolveEscalationModal({ order, open, busy, onClose, onConfirm }
   }, [open]);
 
   const sinReparar = RESOLUCIONES_SIN_REPARACION.includes(resolucion);
+  const textoLimpio = limpiarTexto(texto);
+  const avisoLimpio = limpiarTexto(aviso);
   const faltan = sinReparar
-    ? sinReparacionMissing(order, texto, aviso)
-    : texto.trim().length < MIN_MOTIVO ? [`Falta el detalle (mínimo ${MIN_MOTIVO} caracteres)`] : [];
+    ? sinReparacionMissing(order, textoLimpio, avisoLimpio)
+    : textoLimpio.length < MIN_MOTIVO ? [`Falta el detalle (mínimo ${MIN_MOTIVO} caracteres)`] : [];
+  // Lo que está escrito pero no sirve (solo signos, demasiado largo): se avisa en el mismo campo
+  const errorTexto = textoLimpio === '' ? null : problemaTexto(sinReparar ? 'Informe' : 'Detalle', textoLimpio, 0, MAX_FALLA);
+  const errorAviso = avisoLimpio === '' ? null : problemaTexto('Constancia de aviso', avisoLimpio, 0, MAX_COMENTARIO);
+  const hayError = errorTexto !== null || (sinReparar && errorAviso !== null);
   const tecnicos = (users.data ?? []).filter((u) => u.roles.includes('TECNICO') && u.id !== order.tecnicoId);
 
   return (
@@ -63,13 +70,13 @@ export function ResolveEscalationModal({ order, open, busy, onClose, onConfirm }
           </Button>
           <Button
             loading={busy}
-            disabled={faltan.length > 0}
+            disabled={faltan.length > 0 || hayError}
             onClick={() =>
               onConfirm({
                 resolucion,
-                texto: texto.trim(),
+                texto: textoLimpio,
                 tecnicoId: resolucion === 'CONTINUAR' && tecnicoId ? tecnicoId : undefined,
-                avisoCliente: sinReparar ? aviso.trim() : undefined,
+                avisoCliente: sinReparar ? avisoLimpio : undefined,
               })
             }
           >
@@ -105,6 +112,7 @@ export function ResolveEscalationModal({ order, open, busy, onClose, onConfirm }
           rows={4}
           data-autofocus
           value={texto}
+          error={errorTexto ?? undefined}
           onChange={(e) => setTexto(e.target.value)}
           placeholder={sinReparar ? 'Por qué no se repara y qué opciones se le dieron al cliente.' : 'Qué se decidió y cómo sigue.'}
           hint={`Mínimo ${sinReparar ? MIN_INFORME : MIN_MOTIVO} caracteres.`}
@@ -116,6 +124,7 @@ export function ResolveEscalationModal({ order, open, busy, onClose, onConfirm }
             required
             rows={2}
             value={aviso}
+            error={errorAviso ?? undefined}
             onChange={(e) => setAviso(e.target.value)}
             placeholder="Ej.: Llamó Martín el 3/11 a las 10:30, habló con Juan Pérez."
           />

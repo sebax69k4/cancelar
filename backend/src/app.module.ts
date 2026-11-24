@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { AppThrottlerGuard } from './common/app-throttler.guard';
+import { textoSeguro } from './common/safe-text';
 import { CatalogController } from './catalog/catalog.controller';
 import { ClientsModule } from './clients/clients.module';
 import { validateEnv } from './config/env';
@@ -43,4 +44,8 @@ const porIp = (req: Record<string, unknown>) => (typeof req.ip === 'string' ? re
   // El ThrottlerGuard va antes que el AuthGuard (registrado en AuthModule)
   providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(textoSeguro).forRoutes('*path'); // corre con el cuerpo ya leído
+  }
+}

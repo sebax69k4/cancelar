@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TIPOS_EQUIPO } from '@/types/domain';
-import { textoCorto } from './common';
+import { MAX_NOTAS, SERIE_RE } from '@/lib/workflow/validation';
+import { textoCorto, textoLibre } from './common';
 
 export const equipmentSchema = z.object({
   clienteId: z.string().min(1, 'Elegí el cliente dueño del equipo'),
@@ -12,8 +13,8 @@ export const equipmentSchema = z.object({
     .trim()
     .min(3, 'Ingresá el número de serie (mínimo 3 caracteres)')
     .max(40, 'Máximo 40 caracteres')
-    .regex(/^[A-Za-z0-9\-_/.]+$/, 'Usá solo letras, números y - _ / .'),
-  notas: z.string().trim().max(300, 'Máximo 300 caracteres'),
+    .regex(SERIE_RE, 'Usá solo letras, números y - _ / . (empezando con letra o número)'),
+  notas: textoLibre('Notas', MAX_NOTAS),
 });
 
 export type EquipmentInput = z.infer<typeof equipmentSchema>;

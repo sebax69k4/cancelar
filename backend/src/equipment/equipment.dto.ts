@@ -1,13 +1,11 @@
 import { Transform } from 'class-transformer';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
-import { trimString } from '../common/text';
-import { TextoCorto } from '../common/validators';
-import { MAX_BUSQUEDA } from '../domain/validation';
+import { IsEnum, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
+import { IdRegistro, TextoCorto, TextoLibre } from '../common/validators';
+import { MAX_BUSQUEDA, MAX_NOTAS, SERIE_RE } from '../domain/validation';
 import { TipoEquipo } from '../generated/prisma/enums';
 
 export class CreateEquipmentDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Elegí el cliente dueño del equipo' })
+  @IdRegistro('Elegí el cliente dueño del equipo')
   clienteId: string;
 
   @IsEnum(TipoEquipo, { message: 'Tipo de equipo inválido' })
@@ -20,26 +18,21 @@ export class CreateEquipmentDto {
   modelo: string;
 
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
-  @IsString()
   @Length(3, 40, { message: 'Número de serie: entre 3 y 40 caracteres' })
-  @Matches(/^[A-Z0-9\-_/.]+$/, { message: 'Número de serie: usá solo letras, números y - _ / .' })
+  @Matches(SERIE_RE, { message: 'Número de serie: usá solo letras, números y - _ / . (empezando con letra o número)' })
   numeroSerie: string;
 
-  @Transform(trimString)
-  @IsOptional()
-  @IsString()
-  @MaxLength(300, { message: 'Notas: máximo 300 caracteres' })
+  @TextoLibre('Notas', MAX_NOTAS, { opcional: true })
   notas?: string | null;
 }
 
 export class EquipmentQuery {
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Búsqueda inválida' })
   @MaxLength(MAX_BUSQUEDA, { message: `La búsqueda no puede tener más de ${MAX_BUSQUEDA} caracteres` })
   q?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
+  @IdRegistro('Cliente inválido')
   clientId?: string;
 }

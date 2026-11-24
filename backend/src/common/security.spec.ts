@@ -2,7 +2,10 @@ import { deflateSync } from 'node:zlib';
 import { coincideFirma, MENSAJES_EVIDENCIA, nombreSeguro, problemaEvidencia } from '../orders/evidence.signature';
 import { corteDeSesiones, nuevaSesion, sesionVigente } from '../auth/sessions';
 import { validateEnv } from '../config/env';
-import { MAX_EVIDENCIA_MB, limpiarNombre, problemaEmail, problemaNombre, problemaPassword, problemaTelefono } from '../domain/validation';
+import {
+  MAX_EVIDENCIA_MB, SERIE_RE, limpiarNombre, limpiarTexto, problemaEmail, problemaNombre, problemaPassword, problemaTelefono, problemaTexto,
+} from '../domain/validation';
+import { problemaCuerpo, problemaUrl } from './safe-text';
 import { escapeLike } from './text';
 import { Logger } from '@nestjs/common';
 import { eventoSeguridad, ocultarEmail } from './security-log';
@@ -107,7 +110,7 @@ describe('contenido malicioso en evidencias', () => {
   it('el nombre visible no trae carpetas, saltos de línea ni caracteres invisibles', () => {
     expect(nombreSeguro('../../windows/system32/evil.png')).toBe('evil.png');
     expect(nombreSeguro('C:\\Users\\x\\foto.jpg')).toBe('foto.jpg');
-    expect(nombreSeguro('a\r\nSet-Cookie: x=1.png')).toBe('aSet-Cookie: x=1.png');
+    expect(nombreSeguro('a\r\nSet-Cookie: x=1.png')).toBe('aSet-Cookie x=1.png');
     expect(nombreSeguro('factura\u202Egpj.exe')).toBe('facturagpj.exe'); // inversión de texto que disfraza la extensión
     expect(nombreSeguro('..')).toBe('archivo');
     expect(nombreSeguro('')).toBe('archivo');
@@ -165,6 +168,62 @@ describe('textos al crear y al ingresar', () => {
     for (const mal of ['a1'.repeat(20) + 'x', ' clave-larga-1', 'clave-larga-1 ', 'clave\tlarga-1', 'clave\u200blarga-1', '\u00a0clave-larga-1']) {
       expect([mal, problemaPassword(mal, 8) !== null]).toEqual([mal, true]);
     }
+  });
+});
+
+describe('textos libres', () => {
+  it('limpia invisibles, códigos de control y texto invertido, y conserva lo que se ve', () => {
+    expect(limpiarTexto('  a\u200bb \u202ec\u0007d\u001b[31m\ufeff  ')).toBe('ab cd[31m');
+    expect(limpiarTexto('uno\r\ndos\u2028tres\n\n\n\n\ncuatro\tcinco')).toBe('uno\ndos\ntres\n\ncuatro\tcinco');
+    for (const igual of ['Pantalla 15.6" <60Hz, 5V/2A & 100°C', 'C:\\win {x} [y] | 50%', 'Quedó 👍🏽', 'Familia 👨‍👩‍👧', 'El señor Muñoz: ¿cuánto? ¡Ya!']) {
+      expect(limpiarTexto(igual)).toBe(igual);
+      expect(problemaTexto('T', igual, 1, 500)).toBeNull();
+    }
+    expect(limpiarTexto('a\u200db')).toBe('ab'); // la unión de emojis entre letras no hace falta
+  });
+
+  it('exige palabras o números y respeta los largos', () => {
+    for (const mal of ['!'.repeat(30), '.'.repeat(30), '😀'.repeat(15), 'x'.repeat(501), 'corto', `Texto${'\u0301'.repeat(60)} zalgo`]) {
+      expect([mal.slice(0, 20), problemaTexto('T', limpiarTexto(mal), 10, 500) !== null]).toEqual([mal.slice(0, 20), true]);
+    }
+    expect(problemaTexto('Notas', '', 0, 300)).toBeNull();
+    expect(problemaTexto('Motivo', '', 10, 500, 'El motivo es obligatorio')).toBe('El motivo es obligatorio');
+  });
+
+  it('textos gigantes o armados para ser lentos se resuelven enseguida', () => {
+    const t = Date.now();
+    for (const x of [' '.repeat(1e5) + 'a', '\n'.repeat(1e5) + 'a', '\u200d'.repeat(1e5), 'a\u0301'.repeat(5e4), '('.repeat(1e5), '1'.repeat(1e5), '(1'.repeat(5e4)]) {
+      problemaTexto('T', limpiarTexto(x), 1, 500);
+      problemaTelefono(limpiarNombre(x));
+      problemaNombre('N', limpiarNombre(x));
+      problemaEmail(x);
+      problemaPassword(x, 8);
+    }
+    expect(Date.now() - t).toBeLessThan(2000);
+  });
+
+  it('teléfonos y números de serie armados como corresponde', () => {
+    for (const ok of ['+54 9 11 4000-0000', '(011) 4000-0001', '(+54) 11 4000-0002', '123456']) expect([ok, problemaTelefono(ok)]).toEqual([ok, null]);
+    for (const mal of ['11\n4444-5555', '11\t4444-5555', '11+4444+5555', '((((11 4444-5555', ')11( 4444-5555', '()1144445555', '١١٤٤٤٤٥٥٥٥']) {
+      expect([mal, problemaTelefono(mal) !== null]).toEqual([mal, true]);
+    }
+    expect(['S-1/2.3_A', '---', '...', '-A1'].map((s) => SERIE_RE.test(s))).toEqual([true, false, false, false]);
+  });
+
+  it('el carácter nulo, los medios emojis y lo muy anidado se frenan antes de llegar a la base', () => {
+    for (const mal of [{ a: 'x\0' }, { a: ['ok', { b: '\ud800' }] }, { 'k\0': 1 }, '\0']) expect(problemaCuerpo(mal)).not.toBeNull();
+    let anidado: unknown = 1;
+    for (let i = 0; i < 50_000; i++) anidado = [anidado];
+    expect(problemaCuerpo(anidado)).toBe('La solicitud tiene un formato inválido');
+    for (const ok of [undefined, null, 5, {}, { a: ['😀', { b: null }] }]) expect(problemaCuerpo(ok)).toBeNull();
+    for (const mal of ['/api/orders/%00', '/api/orders?q=a%00b', '/api/x%E0%A4%A']) expect([mal, problemaUrl(mal) !== null]).toEqual([mal, true]);
+    expect(problemaUrl('/api/orders?q=ñand%C3%BA+50%25')).toBeNull();
+  });
+
+  it('el nombre de un archivo se corta sin romper emojis y sin caracteres raros', () => {
+    const n = nombreSeguro(`a${'😀'.repeat(150)}.png`);
+    expect(() => encodeURIComponent(n)).not.toThrow();
+    expect(nombreSeguro('<img src=x>:"|?*.png')).toBe('img src=x.png');
   });
 });
 

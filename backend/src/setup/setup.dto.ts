@@ -1,10 +1,6 @@
-import { Transform } from 'class-transformer';
-import {
-  ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength,
-} from 'class-validator';
-import { trimString } from '../common/text';
-import { Email, Nombre, PasswordNueva, TelefonoOpcional } from '../common/validators';
-import { PRECIO_MAX } from '../domain/validation';
+import { ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsEnum, IsInt, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { Email, Nombre, PasswordNueva, SiViene, TelefonoOpcional, TextoLibre } from '../common/validators';
+import { MAX_DIRECCION, MAX_NOTAS, PRECIO_MAX } from '../domain/validation';
 import { Rol } from '../generated/prisma/enums';
 
 const precioMsg = `El precio va de 0 a ${PRECIO_MAX.toLocaleString('es-AR')}`;
@@ -27,7 +23,7 @@ export class RegisterDto {
 }
 
 export class ChangePasswordDto {
-  @IsString() @MinLength(1, { message: 'Ingresá tu contraseña actual' }) @MaxLength(MAX_PASSWORD_ACTUAL, { message: 'La contraseña actual no es correcta' })
+  @IsString({ message: 'Ingresá tu contraseña actual' }) @MinLength(1, { message: 'Ingresá tu contraseña actual' }) @MaxLength(MAX_PASSWORD_ACTUAL, { message: 'La contraseña actual no es correcta' })
   actual: string;
 
   @PasswordNueva()
@@ -41,7 +37,7 @@ export class UpdateTallerDto {
   @TelefonoOpcional()
   telefono?: string | null;
 
-  @Transform(trimString) @IsOptional() @IsString() @MaxLength(200, { message: 'Dirección: máximo 200 caracteres' })
+  @TextoLibre('Dirección', MAX_DIRECCION, { opcional: true, unRenglon: true })
   direccion?: string | null;
 }
 
@@ -55,7 +51,7 @@ export class CreateUserDto {
   @PasswordNueva()
   password: string;
 
-  @IsArray() @ArrayMinSize(1, { message: 'Elegí al menos un rol' }) @ArrayUnique() @IsEnum(Rol, { each: true, message: 'Rol inválido' })
+  @IsArray({ message: 'Elegí al menos un rol' }) @ArrayMinSize(1, { message: 'Elegí al menos un rol' }) @ArrayUnique({ message: 'Hay roles repetidos' }) @IsEnum(Rol, { each: true, message: 'Rol inválido' })
   roles: Rol[];
 }
 
@@ -63,10 +59,10 @@ export class UpdateUserDto {
   @Nombre('Nombre', true)
   nombre?: string;
 
-  @IsOptional() @IsArray() @ArrayMinSize(1, { message: 'Elegí al menos un rol' }) @ArrayUnique() @IsEnum(Rol, { each: true, message: 'Rol inválido' })
+  @SiViene() @IsArray({ message: 'Elegí al menos un rol' }) @ArrayMinSize(1, { message: 'Elegí al menos un rol' }) @ArrayUnique({ message: 'Hay roles repetidos' }) @IsEnum(Rol, { each: true, message: 'Rol inválido' })
   roles?: Rol[];
 
-  @IsOptional() @IsBoolean()
+  @SiViene() @IsBoolean({ message: 'Indicá si está activo o no' })
   activo?: boolean;
 
   /** Contraseña nueva, para quien la olvidó. */
@@ -78,7 +74,7 @@ export class CreateServiceDto {
   @Nombre('Nombre del servicio')
   nombre: string;
 
-  @Transform(trimString) @IsOptional() @IsString() @MaxLength(300, { message: 'Descripción: máximo 300 caracteres' })
+  @TextoLibre('Descripción', MAX_NOTAS, { opcional: true })
   descripcion?: string;
 
   @IsInt({ message: 'El precio debe ser un número entero' }) @Min(0, { message: precioMsg }) @Max(PRECIO_MAX, { message: precioMsg })
@@ -89,9 +85,9 @@ export class UpdateServiceDto {
   @Nombre('Nombre del servicio', true)
   nombre?: string;
 
-  @IsOptional() @IsInt({ message: 'El precio debe ser un número entero' }) @Min(0, { message: precioMsg }) @Max(PRECIO_MAX, { message: precioMsg })
+  @SiViene() @IsInt({ message: 'El precio debe ser un número entero' }) @Min(0, { message: precioMsg }) @Max(PRECIO_MAX, { message: precioMsg })
   precioBase?: number;
 
-  @IsOptional() @IsBoolean()
+  @SiViene() @IsBoolean({ message: 'Indicá si está activo o no' })
   activo?: boolean;
 }
