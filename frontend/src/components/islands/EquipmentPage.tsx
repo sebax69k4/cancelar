@@ -20,6 +20,7 @@ import { useEquipment } from '@/hooks/useEquipment';
 import { useOrders } from '@/hooks/useOrders';
 import { errorMessage } from '@/lib/api/errors';
 import { TIPO_EQUIPO_LABEL } from '@/lib/domain/labels';
+import { MAX_BUSQUEDA } from '@/lib/workflow/validation';
 import type { Equipo, OrdenResumen } from '@/types/domain';
 
 function initialClientFilter(): string {
@@ -128,6 +129,7 @@ function Content({ clienteId, setClienteId, onNew }: { clienteId: string; setCli
           type="search"
           wrapperClassName="w-full sm:max-w-xs"
           leftIcon={<Search aria-hidden="true" />}
+          maxLength={MAX_BUSQUEDA}
           placeholder="Marca, modelo, serie o cliente"
           value={q}
           onChange={(e) => setQ(e.target.value)}

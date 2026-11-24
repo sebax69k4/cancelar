@@ -9,7 +9,7 @@ API del sistema de workflow para el servicio técnico de PC y notebooks. Impleme
 ## Índice
 
 1. [Puesta en marcha](#puesta-en-marcha)
-2. [Usuarios iniciales](#usuarios-iniciales)
+2. [Primera cuenta](#primera-cuenta)
 3. [Comandos](#comandos)
 4. [Arquitectura](#arquitectura)
 5. [Primer uso](#primer-uso)
@@ -64,14 +64,10 @@ Editá `.env`: en `DATABASE_URL` reemplazá `CONTRASENA` por la contraseña de P
 node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 ```
 
-Creá la base y las tablas con las migraciones, y cargá los usuarios y servicios iniciales:
+Creá la base y las tablas con las migraciones:
 
 ```bash
 npx prisma migrate deploy
-```
-
-```bash
-npm run db:seed
 ```
 
 Levantá la API:
@@ -92,27 +88,11 @@ En `frontend/.env`:
 PUBLIC_API_URL=http://localhost:3000/api
 ```
 
-Reiniciá `npm run dev` en el frontend. Sin esa variable, el frontend vuelve al modo demo (datos en el navegador).
+Reiniciá `npm run dev` en el frontend. La variable es obligatoria: sin ella el frontend no compila.
 
-## Usuarios iniciales
+## Primera cuenta
 
-**Uso real:** base vacía; cada taller se registra desde la portada (los servicios se crean al registrarlo):
-
-```bash
-SEED_USERS=false npm run db:seed
-```
-
-**Desarrollo:** la semilla (`prisma/seed.ts`) crea el taller 1 («Taller de desarrollo») ya configurado, con estos usuarios y los servicios iniciales. Contraseña de desarrollo: `demo1234` (configurable con la variable `SEED_PASSWORD` antes de correr la semilla).
-
-| Rol | Nombre | Email |
-|---|---|---|
-| Admin | Laura Méndez | admin@serviciotecnico.local |
-| Supervisor | Ana Ríos | supervisor@serviciotecnico.local |
-| Recepción | Martín Sosa | recepcion@serviciotecnico.local |
-| Técnico | Carlos Ibáñez | carlos@serviciotecnico.local |
-| Técnico | Julieta Paz | julieta@serviciotecnico.local |
-
-También crea el catálogo de 7 servicios. **No crea clientes, equipos ni órdenes**: el sistema arranca vacío.
+La base arranca vacía: no hay usuarios ni contraseñas por defecto. Cada taller se crea desde la portada del frontend («Crear cuenta de taller»): quien la crea queda como Admin y el taller recibe el catálogo de 7 servicios. Después, el Admin agrega a las demás personas desde Configuración y asigna todos los roles antes de usar el sistema.
 
 ## Comandos
 
@@ -126,8 +106,7 @@ También crea el catálogo de 7 servicios. **No crea clientes, equipos ni órden
 | `npm run test:e2e` | Prueba del ciclo completo en esquemas temporales de PostgreSQL (`e2e_*`) |
 | `npm run db:migrate` | Crea una migración nueva tras cambiar `prisma/schema.prisma` (desarrollo) |
 | `npm run db:deploy` | Aplica migraciones pendientes (producción) |
-| `npm run db:seed` | Crea los usuarios y servicios que falten (nunca modifica los existentes). Con `SEED_USERS=false` no carga nada |
-| `npm run db:reset` | **Borra la base** y la recrea con migraciones + semilla |
+| `npm run db:reset` | **Borra la base** y la recrea vacía con las migraciones (solo desarrollo) |
 | `npm run db:studio` | Prisma Studio: ver y editar datos en el navegador |
 
 ## Arquitectura
@@ -136,8 +115,7 @@ También crea el catálogo de 7 servicios. **No crea clientes, equipos ni órden
 prisma/
 ├── schema.prisma          Modelo de datos (Usuario, Cliente, Equipo, Servicio, Orden, Evidencia,
 │                          Historial, InformeCritico, Contador)
-├── migrations/            Migraciones SQL versionadas
-└── seed.ts                Usuarios y servicios iniciales
+└── migrations/            Migraciones SQL versionadas
 src/
 ├── main.ts                Arranque + Swagger
 ├── setup.ts               Prefijo /api, helmet, cookies, CORS, ValidationPipe, filtro de errores
@@ -203,9 +181,9 @@ Todas las rutas llevan el prefijo `/api` y requieren sesión, salvo `health`, `a
 | Método | Ruta | Permiso |
 |---|---|---|
 | POST | `/auth/login` · `/auth/logout` | público (login: máx. 5 intentos/min) |
-| POST | `/auth/register` | público; solo si todavía no hay ninguna cuenta (crea el taller y su Admin) |
+| POST | `/auth/register` | público (crea un taller nuevo y su Admin; 10 por minuto y 20 por hora por IP) |
 | POST | `/auth/password` | sesión |
-| GET | `/setup/status` | público (talleres registrados, si hay lugar y si está el borrado de pruebas) |
+| GET | `/setup/status` | público (si ya hay talleres registrados y si el registro está abierto) |
 | GET | `/setup/mine` | sesión (si el taller del usuario terminó la configuración) |
 | GET · PATCH · POST | `/setup/progress` · `/setup/taller` · `/setup/complete` · `/setup/users` · `/setup/services` | `users.manage` (Admin) |
 | GET | `/auth/me` | sesión |
@@ -244,26 +222,41 @@ Todas las rutas llevan el prefijo `/api` y requieren sesión, salvo `health`, `a
 
 Las reglas están en `src/domain/validation.ts` (copia en `frontend/src/lib/workflow/validation.ts`), y se aplican con los decoradores de `src/common/validators.ts`. El frontend las muestra campo por campo antes de enviar; el backend las vuelve a controlar siempre.
 
-- **Nombres** (personas, clientes, taller, servicios): de 2 al máximo del campo, con al menos una letra.
-- **Teléfono**: solo números, espacios, `+`, `-` y paréntesis, de 6 a 15 dígitos. El del taller es opcional.
-- **Email**: formato válido, hasta 254 caracteres, se guarda en minúsculas.
-- **Contraseña nueva**: al menos 8 caracteres, con letras y números. En el registro y en «Mi cuenta» hay que repetirla, y la nueva tiene que ser distinta de la actual.
+- **Nombres** (personas, clientes, taller, servicios; también marca y modelo): de 2 a **40 caracteres** (`MAX_TEXTO`), con al menos una letra. Solo letras, números, espacios y `. , ' & ( ) / + # _ -`, empezando con letra o número. Los espacios de adelante, de atrás y dobles se quitan; los caracteres invisibles se rechazan.
+- **Textos libres** (falla, diagnóstico, solución, comentarios, motivos, informes, notas, dirección): admiten cualquier símbolo visible y emojis, pero tienen que tener palabras o números. Se quitan los caracteres invisibles, de control y los que invierten el texto, y los espacios de las puntas. Cada uno tiene su largo máximo (`MAX_FALLA`, `MAX_DETALLE`, `MAX_COMENTARIO`…).
+- **En toda la API** (`common/safe-text.ts`): el carácter nulo, los caracteres rotos, las direcciones mal codificadas y los cuerpos muy anidados responden 400.
+- **Número de serie**: letras, números y `- _ / .`, empezando con letra o número.
+- **Teléfono**: solo números, espacios, `+` (al principio), `-` y paréntesis de a pares, de 6 a 15 dígitos. El del taller es opcional.
+- **Email**: formato válido sin caracteres raros, hasta 40 caracteres, se guarda en minúsculas y sin espacios. Vale igual al ingresar.
+- **Contraseña nueva**: de 8 a 40 caracteres, con letras y números; admite símbolos, pero no espacios en las puntas ni caracteres invisibles. Al ingresar se controlan el largo, las puntas y los invisibles. En el registro y en «Mi cuenta» hay que repetirla, y la nueva tiene que ser distinta de la actual.
 - **Servicios**: el nombre no se repite dentro del taller (sin importar mayúsculas); el precio es un entero de 0 a 100.000.000.
-- **Fecha estimada de la orden**: de hoy a 365 días.
+- **Fecha estimada de la orden**: de hoy a 365 días, y tiene que existir (no el 30 de febrero).
 - **Búsquedas**: hasta 100 caracteres.
+- **Evidencias**: hasta **10 MB** por archivo (`MAX_EVIDENCIA_MB`). `UPLOAD_MAX_MB` en `.env` solo puede bajarlo: con un valor mayor a 10 el backend no arranca. Hasta 30 archivos por orden.
+- **Subidas pesadas** (scripts por fuera del navegador): un pedido demasiado grande se corta sin recibirlo entero, con o sin `Content-Length` y con o sin sesión (`common/body-limit.ts`). El permiso sobre la orden se controla antes de leer el archivo, y cada persona puede subir 3 archivos a la vez, 30 por minuto y 150 por hora; en total, 6 a la vez (`orders/upload.guard.ts`). No se aceptan campos de texto ni un segundo archivo, y siempre quedan 100 MB libres en el disco.
 
 ## Seguridad
 
 - Contraseñas con **argon2id**. El login tarda lo mismo exista o no el email.
-- Sesión: JWT firmado en cookie **HTTP-only**, `SameSite=Lax`, `Secure` con `COOKIE_SECURE=true`. Duración: `JWT_EXPIRES_IN`.
+- Sesión: JWT firmado en cookie **HTTP-only**, `SameSite=Lax`, `Secure` con `COOKIE_SECURE=true`. Duración: `JWT_EXPIRES_IN`. Solo se acepta **HS256**: un token con otro algoritmo, o con `none`, se rechaza.
+- **Cerrar sesión invalida el token** (tabla `SesionCerrada`, por `jti`): si alguien lo copió, deja de servirle en ese momento. Las filas se borran solas cuando el token habría vencido.
+- **CSRF** (`src/common/origin.ts`): `POST`, `PATCH` y `DELETE` solo se aceptan si `Origin` es `CORS_ORIGIN` o la propia API. Sin `Origin` (curl, pruebas) solo se rechaza si `Sec-Fetch-Site` dice `cross-site`. Complementa a `SameSite=Lax`, que no frena a otro puerto o subdominio del mismo sitio.
+- **Producción** (`NODE_ENV=production`): el backend no arranca con `COOKIE_SECURE=false`, con orígenes sin `https://` ni con sesiones de más de 7 días.
+- **Registro de seguridad** (logger `Seguridad`, una línea JSON por evento): logins fallidos y exitosos, tokens inválidos o cerrados reutilizados, accesos denegados (403), límites superados (429), orígenes rechazados, usuarios creados o modificados, cambios de contraseña y evidencias rechazadas. El email va oculto (`a***@dominio`) y nunca se registran contraseñas ni tokens. Al ser JSON, un valor con saltos de línea no puede inventar líneas falsas.
+- Registro de talleres: 10 por minuto y 20 por hora por IP, para que nadie llene la base de talleres falsos.
 - El usuario se vuelve a leer de la base en cada request: desactivar un usuario (`activo = false`) corta su acceso al instante.
 - **Corte de sesiones** (`Usuario.sesionesDesde`): cambiar la propia contraseña cierra las demás sesiones (la actual recibe un token nuevo); el reseteo de contraseña por el Admin y la desactivación cierran todas, aunque después se reactive a la persona.
 - **CORS** restringido a `CORS_ORIGIN` (se aceptan varios separados por coma).
 - **helmet** (cabeceras de seguridad). Límite de solicitudes: 600/min por IP en general. Login: 5 intentos por minuto por **IP + email** (en un taller varias PCs comparten IP: contar solo por IP bloquearía a empleados legítimos) y además 20 por minuto por **IP**, sumando todas las cuentas, contra quien prueba una contraseña en muchas cuentas.
-- Evidencia: solo JPG, PNG, WebP, GIF, HEIC y PDF. SVG y HTML se rechazan porque pueden contener scripts. Además del tipo que declara el navegador se controla la **firma** del archivo (sus primeros bytes, `src/orders/evidence.signature.ts`): un HTML o un ejecutable renombrado como `.jpg` se rechaza.
+- **Archivos maliciosos** (`src/orders/evidence.signature.ts`). Solo se aceptan JPG, PNG, WebP, GIF, HEIC y PDF; SVG y HTML se rechazan porque pueden contener scripts. Cada archivo se revisa por dentro, sin confiar en el tipo que declara el navegador:
+  - **Firma**: los primeros bytes tienen que ser los del tipo. Un HTML o un ejecutable renombrado como `.jpg` se rechaza.
+  - **Estructura completa**: PNG terminado en `IEND`, GIF en `;`, WebP con el tamaño RIFF exacto, PDF con `%%EOF`. Así se frenan los «políglotas» (una foto válida con un ZIP o un programa pegado al final). En JPEG y HEIC no se controla, porque los celulares guardan datos legítimos después de la imagen.
+  - **Sin código**: se rechaza si trae HTML, `<script>`, `<svg>`, `<iframe>`, PHP, `javascript:` o un ejecutable de Windows incrustado.
+  - **PDF sin acciones**: se rechaza si trae `/JavaScript`, `/JS`, `/Launch`, adjuntos (`/EmbeddedFiles`), `/RichMedia`, formularios XFA o envío de formularios. También se buscan disfrazadas (`/J#61vaScript`) y escondidas en objetos comprimidos, que se descomprimen con un tope total de 20 MB contra las bombas zip.
+  - **Guardado**: nombre aleatorio y extensión del tipo verificado, nunca la del nombre original (un `shell.php` se guarda `.jpg`), y nunca fuera de `UPLOAD_DIR`. El nombre visible se limpia de carpetas, saltos de línea y caracteres invisibles (por ejemplo, la inversión de texto que disfraza `fdp.exe`).
+  - **Descarga aislada**: `Content-Security-Policy: default-src 'none'; sandbox` y `nosniff`, así que aunque algo se colara el navegador no ejecuta scripts ni accede a la sesión. Los PDF se descargan (`attachment`) en lugar de abrirse dentro del sitio.
 - `ValidationPipe` con `whitelist`: los campos que no están en el DTO se descartan (ej. un `prioridad` enviado por el cliente).
-- Evidencias: tipo y tamaño validados, nombres de archivo aleatorios, sin acceso fuera de `UPLOAD_DIR`.
-- Búsquedas: los comodines de `LIKE` (`%`, `_`) se escapan, así que se buscan como texto. Las consultas van siempre parametrizadas (Prisma).
+- **Inyección SQL**. Todas las consultas pasan por Prisma, que manda los valores como parámetros separados del SQL: un `' OR 1=1 --` se busca o se guarda como texto. `src/common/sql.spec.ts` revisa el código y las pruebas, y falla si alguien agrega `$queryRawUnsafe`, `$executeRawUnsafe` o `Prisma.raw`. El SQL directo que queda usa plantillas con parámetros: el chequeo de salud y la secuencia de `Taller` en los datos de prueba. La limpieza de pruebas solo acepta esquemas `e2e_…` y los escapa con `escapeIdentifier`. Los comodines de `LIKE` (`%`, `_`) se escapan para que se busquen como texto. Las pruebas e2e mandan SQL en búsquedas, login, ids de la URL y datos.
 - Errores: nunca devuelven trazas ni rutas internas; un cuerpo JSON demasiado grande responde 413.
 - Documentación interactiva (`/api/docs`): solo fuera de producción (`NODE_ENV=production` la apaga).
 - Dependencias: `npm audit --omit=dev` sin vulnerabilidades al 19/11/2026. Las que reporta `npm audit` completo son de herramientas de desarrollo (pruebas y compilación), que no se despliegan.
@@ -278,12 +271,12 @@ npm test
 npm run test:e2e
 ```
 
-Necesitan PostgreSQL corriendo. Cada archivo usa su propio esquema (`e2e_workflow`, `e2e_edge`) dentro de la base de `TEST_DATABASE_URL` o, si no está definida, de `DATABASE_URL`; nunca toca `public`. Cada archivo borra y recrea su esquema, aplica migraciones y semilla. `security.e2e-spec.ts` cubre seguridad y validaciones: rutas sin sesión, tokens falsificados o vencidos, permisos por rol, campos que el cliente no debe controlar, inyección SQL y comodines, `__proto__`, HTML guardado como texto, firma y tamaño de archivos, `../` en nombres, cabeceras, errores sin detalles internos, corte de sesiones, fuerza bruta y los límites de cada campo. Al terminar, cada archivo borra su esquema y su carpeta de evidencias: no quedan datos de prueba. `escalation.e2e-spec.ts` cubre niveles, ciclo, sin reparación, entrega y escalamiento automático; `setup.e2e-spec.ts`, el primer uso, los varios roles y las validaciones de datos. `workflow.e2e-spec.ts` recorre con los cuatro roles: alta de cliente/equipo/orden, visibilidad del Técnico, reglas con 422, bloqueo y desbloqueo, escalado, evidencia con archivo real, validación, cierre, reapertura, historial completo, crítica > 24 h en el dashboard y límite de intentos de login.
+Necesitan PostgreSQL corriendo. Cada archivo usa su propio esquema (`e2e_workflow`, `e2e_edge`) dentro de la base de `TEST_DATABASE_URL` o, si no está definida, de `DATABASE_URL`; nunca toca `public`. Cada archivo borra y recrea su esquema, aplica migraciones y carga sus datos de prueba (`test/seed-pruebas.ts`, que solo corre en esquemas `e2e_…`). `security.e2e-spec.ts` cubre seguridad y validaciones: rutas sin sesión, tokens falsificados o vencidos, permisos por rol, campos que el cliente no debe controlar, inyección SQL y comodines, `__proto__`, HTML guardado como texto, firma y tamaño de archivos, `../` en nombres, cabeceras, errores sin detalles internos, corte de sesiones, fuerza bruta y los límites de cada campo. Al terminar, cada archivo borra su esquema y su carpeta de evidencias: no quedan datos de prueba. `escalation.e2e-spec.ts` cubre niveles, ciclo, sin reparación, entrega y escalamiento automático; `setup.e2e-spec.ts`, el primer uso, los varios roles y las validaciones de datos. `workflow.e2e-spec.ts` recorre con los cuatro roles: alta de cliente/equipo/orden, visibilidad del Técnico, reglas con 422, bloqueo y desbloqueo, escalado, evidencia con archivo real, validación, cierre, reapertura, historial completo, crítica > 24 h en el dashboard y límite de intentos de login.
 
 ## Antes de producción
 
 - `JWT_SECRET` nuevo y largo; `COOKIE_SECURE=true` detrás de HTTPS; `CORS_ORIGIN` con el dominio real; `NODE_ENV=production`.
 - Cabeceras de seguridad para el frontend en el servidor web o proxy (casi todas sus páginas son estáticas): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` y HSTS.
-- Cambiar las contraseñas de los usuarios iniciales o crearlos con `SEED_PASSWORD` propio.
+- No hay usuarios por defecto: la primera cuenta se crea desde la portada.
 - Respaldos periódicos de PostgreSQL (`pg_dump`) y de `UPLOAD_DIR`. Un usuario de base propio para la app en lugar de `postgres`.
-- `npm run build` y `npm run db:deploy` en el servidor; ejecutar con `npm run start:prod` (o un gestor de procesos).
+- `npm run build` y `npm run db:deploy` en el servidor; ejecutar con `npm run start:prod` (o un gestor de procesos). Pasos completos en `../DEPLOY.md`.

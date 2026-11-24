@@ -16,3 +16,7 @@ uploads-test/
 uploads-test-edge/
 uploads-test-esc/
 uploads-test-security/
+
+# Configuraciones por entorno (ej. .env.production con credenciales): nunca al repositorio
+.env.*
+!.env.example

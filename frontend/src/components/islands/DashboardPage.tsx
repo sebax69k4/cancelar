@@ -14,7 +14,6 @@ import { useDashboard } from '@/hooks/useDashboard';
 import { can } from '@/lib/auth/permissions';
 import { ROL_LABEL } from '@/lib/domain/labels';
 import { errorMessage } from '@/lib/api/errors';
-import { now } from '@/lib/clock';
 
 function DashboardSkeleton() {
   return (
@@ -47,7 +46,7 @@ function Content() {
 
   if (totalOrdenes === 0) {
     return (
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card>
           <EmptyState
             icon={<Rocket aria-hidden="true" />}
@@ -101,8 +100,8 @@ function Content() {
 
       {user && <MyWorkPanel user={user} />}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <RecentOrders orders={recientes} nowMs={now()} />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <RecentOrders orders={recientes} nowMs={Date.now()} />
         <QuickActions />
       </div>
     </div>

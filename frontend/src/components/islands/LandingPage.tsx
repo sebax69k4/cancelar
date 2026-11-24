@@ -8,8 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Toaster } from '@/components/ui/Toast';
 import { apiClient, type SetupStatus } from '@/lib/api/apiClient';
-import { isMockApi } from '@/lib/api/config';
-import { loadSession } from '@/lib/auth/mockCurrentUser';
+import { loadSession } from '@/lib/auth/session';
 import type { Usuario } from '@/types/domain';
 
 const FEATURES: readonly { icon: LucideIcon; title: string; text: string }[] = [
@@ -29,7 +28,9 @@ export default function LandingPage() {
     void loadSession().then(setUser);
   }, []);
 
-  const puedeRegistrar = !isMockApi && status?.registroAbierto === true;
+  // Visible desde el primer momento: se oculta solo si el servidor dice que el registro está cerrado.
+  // Esperar la respuesta lo escondía cada vez que el backend tardaba (Render dormido) o fallaba.
+  const puedeRegistrar = status?.registroAbierto !== false;
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
@@ -41,10 +42,11 @@ export default function LandingPage() {
           <span className="text-lg font-bold">ServicioTécnico</span>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
+            {/* En el celular no entra al lado del nombre: ahí queda el mismo botón debajo del título */}
             {user ? (
-              <LinkButton href="/dashboard" variant="outline">Ir al sistema <ArrowRight className="size-4" aria-hidden="true" /></LinkButton>
+              <LinkButton href="/dashboard" variant="outline" className="max-sm:hidden">Ir al sistema <ArrowRight className="size-4" aria-hidden="true" /></LinkButton>
             ) : (
-              <LinkButton href="/login" variant="outline" leftIcon={<LogIn aria-hidden="true" />}>Iniciar sesión</LinkButton>
+              <LinkButton href="/login" variant="outline" className="max-sm:hidden" leftIcon={<LogIn aria-hidden="true" />}>Iniciar sesión</LinkButton>
             )}
           </div>
         </div>
@@ -63,8 +65,6 @@ export default function LandingPage() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             {user ? (
               <LinkButton href="/dashboard" size="lg">Ir al sistema <ArrowRight className="size-4" aria-hidden="true" /></LinkButton>
-            ) : isMockApi ? (
-              <LinkButton href="/login" size="lg">Entrar a la demo <ArrowRight className="size-4" aria-hidden="true" /></LinkButton>
             ) : (
               <>
                 {puedeRegistrar && (
@@ -99,8 +99,8 @@ export default function LandingPage() {
           <ol className="mt-4 grid gap-4 md:grid-cols-3">
             {[
               ['Creá la cuenta', 'Quien la crea queda como Admin del taller.'],
-              ['Definí los roles', 'Agregá a tu equipo y asigná Supervisor, Recepción y Técnico.'],
-              ['Cargá órdenes', 'Con los roles cubiertos, el taller queda listo para trabajar.'],
+              ['Asigná todos los roles', 'Obligatorio antes de usar el sistema: Supervisor, Recepción y Técnico (una persona puede cubrir varios).'],
+              ['Cargá órdenes', 'Con todos los roles asignados, el taller queda listo para trabajar.'],
             ].map(([t, d], i) => (
               <li key={t} className="flex gap-3">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary">{i + 1}</span>

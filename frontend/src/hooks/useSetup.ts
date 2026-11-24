@@ -1,16 +1,15 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient, type CreateServiceInput, type CreateUserInput, type UpdateServiceInput, type UpdateTallerInput, type UpdateUserInput } from '@/lib/api/apiClient';
-import { isMockApi } from '@/lib/api/config';
 import { queryClient, queryKeys } from '@/lib/api/queryClient';
 
 const invalidateAll = () => queryClient.invalidateQueries();
 
-/** Si el taller del usuario terminó la configuración inicial. La demo siempre está configurada. */
+/** Si el taller del usuario terminó la configuración inicial. */
 export function useMySetup(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: queryKeys.setupMine,
     queryFn: () => apiClient.getMySetup(),
-    enabled: !isMockApi && (options.enabled ?? true),
+    enabled: options.enabled ?? true,
     staleTime: 60_000,
   });
 }

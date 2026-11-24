@@ -3,7 +3,7 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ShellFallback from '@/components/layout/ShellFallback.astro';
 import App from '@/components/islands/App';
-// id dinámico: la orden se resuelve en el cliente (backend o localStorage), no se puede prerenderizar
+// id dinámico: la orden se pide al backend desde el navegador, no se puede prerenderizar
 export const prerender = false;
 
 ---

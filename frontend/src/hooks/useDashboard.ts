@@ -20,10 +20,3 @@ export function useMarkReportRead() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
   });
 }
-
-export function useResetDemo() {
-  return useMutation({
-    mutationFn: () => apiClient.resetDemo(),
-    onSuccess: () => queryClient.invalidateQueries(),
-  });
-}

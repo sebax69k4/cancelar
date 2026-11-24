@@ -22,25 +22,35 @@ export async function dropTestSchema(databaseUrl: string): Promise<void> {
   const url = new URL(databaseUrl);
   const schema = url.searchParams.get('schema');
   if (!schema || schema === 'public') throw new Error('Las pruebas no deben usar el esquema public');
+  // Un nombre de esquema no puede ir como parámetro: solo se aceptan los de prueba (e2e_…) y se escapa igual
+  if (!/^e2e_[a-z0-9_]{1,50}$/.test(schema)) throw new Error(`Esquema de prueba inválido: ${schema}`);
   url.searchParams.delete('schema');
   const client = new Client({ connectionString: url.toString() });
   await client.connect();
   try {
-    await client.query(`DROP SCHEMA IF EXISTS "${schema.replace(/"/g, '""')}" CASCADE`);
+    await client.query(`DROP SCHEMA IF EXISTS ${client.escapeIdentifier(schema)} CASCADE`);
   } finally {
     await client.end();
   }
 }
 
-/** Archivos mínimos con la firma (primeros bytes) correcta, para subir como evidencia. */
+/** Archivos mínimos con la firma (primeros bytes) y el cierre correctos, para subir como evidencia. */
 export function fakeJpeg(size = 100): Buffer {
-  const b = Buffer.alloc(Math.max(size, 4), 1);
+  const b = Buffer.alloc(Math.max(size, 6), 1);
   b.set([0xff, 0xd8, 0xff, 0xe0]);
+  b.set([0xff, 0xd9], b.length - 2);
   return b;
 }
 
+/** Termina con el bloque IEND, como todo PNG completo. */
 export function fakePng(size = 100): Buffer {
-  const b = Buffer.alloc(Math.max(size, 8), 1);
+  const b = Buffer.alloc(Math.max(size, 20), 1);
   b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  b.set([0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82], b.length - 12);
   return b;
+}
+
+/** PDF mínimo: cabecera y %%EOF. `cuerpo` va en el medio. */
+export function fakePdf(cuerpo = '1 0 obj << /Type /Catalog >> endobj'): Buffer {
+  return Buffer.from(`%PDF-1.7\n${cuerpo}\n%%EOF\n`, 'latin1');
 }

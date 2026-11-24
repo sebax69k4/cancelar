@@ -9,6 +9,7 @@ import { useCreateEquipment } from '@/hooks/useEquipment';
 import { errorMessage } from '@/lib/api/errors';
 import { TIPO_EQUIPO_LABEL } from '@/lib/domain/labels';
 import { toast } from '@/lib/toast';
+import { MAX_TEXTO } from '@/lib/workflow/validation';
 import { equipmentSchema, type EquipmentInput } from '@/schemas/equipment.schema';
 import { TIPOS_EQUIPO, type Equipo } from '@/types/domain';
 
@@ -52,7 +53,7 @@ export function EquipmentForm({ idPrefix = 'ef', clienteId, defaultClienteId, cl
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="@container flex flex-col gap-4">
       {errors.root?.message && (
         <p role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">
           <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
@@ -73,7 +74,7 @@ export function EquipmentForm({ idPrefix = 'ef', clienteId, defaultClienteId, cl
           {...register('clienteId')}
         />
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <Select
           id={`${idPrefix}-tipo`}
           label="Tipo"
@@ -82,8 +83,8 @@ export function EquipmentForm({ idPrefix = 'ef', clienteId, defaultClienteId, cl
           error={errors.tipo?.message}
           {...register('tipo')}
         />
-        <Input id={`${idPrefix}-marca`} label="Marca" required placeholder="Lenovo, HP, Dell…" error={errors.marca?.message} {...register('marca')} />
-        <Input id={`${idPrefix}-modelo`} label="Modelo" required placeholder="ThinkPad T14" error={errors.modelo?.message} {...register('modelo')} />
+        <Input id={`${idPrefix}-marca`} label="Marca" required maxLength={MAX_TEXTO} placeholder="Lenovo, HP, Dell…" error={errors.marca?.message} {...register('marca')} />
+        <Input id={`${idPrefix}-modelo`} label="Modelo" required maxLength={MAX_TEXTO} placeholder="ThinkPad T14" error={errors.modelo?.message} {...register('modelo')} />
         <Input
           id={`${idPrefix}-serie`}
           label="Número de serie"
@@ -91,6 +92,7 @@ export function EquipmentForm({ idPrefix = 'ef', clienteId, defaultClienteId, cl
           autoComplete="off"
           className="font-mono uppercase"
           error={errors.numeroSerie?.message}
+          maxLength={MAX_TEXTO}
           {...register('numeroSerie')}
         />
       </div>

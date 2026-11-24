@@ -2,10 +2,8 @@ import { useEffect, useRef } from 'react';
 import { Cpu, Plus, X } from 'lucide-react';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { useCurrentUser, usePermission } from '@/hooks/useCurrentUser';
-import { isMockApi } from '@/lib/api/config';
 import { can } from '@/lib/auth/permissions';
 import { cn } from '@/lib/cn';
-import { DemoPanel } from './DemoPanel';
 import { NAV_GROUP_LABEL, NAV_ITEMS, isActive, type NavGroup } from './nav';
 
 export interface SidebarProps {
@@ -54,7 +52,7 @@ function NewOrderButton() {
 
 function NavList({ currentPath, counts }: Pick<SidebarProps, 'currentPath' | 'counts'>) {
   const user = useCurrentUser();
-  const items = NAV_ITEMS.filter((i) => user && can(user.roles, i.permission) && !(i.backendOnly && isMockApi));
+  const items = NAV_ITEMS.filter((i) => user && can(user.roles, i.permission));
   const groups = (Object.keys(NAV_GROUP_LABEL) as NavGroup[])
     .map((g) => ({ g, items: items.filter((i) => i.group === g) }))
     .filter((x) => x.items.length > 0);
@@ -133,7 +131,6 @@ export function Sidebar({ currentPath, counts, mobileOpen, onMobileClose }: Side
         <nav aria-label="Principal" className="flex-1">
           <NavList currentPath={currentPath} counts={counts} />
         </nav>
-        <DemoPanel />
       </aside>
 
       {/* Móvil / tablet: drawer */}
@@ -151,7 +148,6 @@ export function Sidebar({ currentPath, counts, mobileOpen, onMobileClose }: Side
             <nav aria-label="Principal" className="flex-1">
               <NavList currentPath={currentPath} counts={counts} />
             </nav>
-            <DemoPanel />
           </aside>
         </div>
       )}

@@ -5,8 +5,8 @@ import { AlertCircle, Building2, Lock, Mail, UserPlus, UserRound } from 'lucide-
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { apiClient } from '@/lib/api/apiClient';
-import { isMockApi } from '@/lib/api/config';
-import { signUp } from '@/lib/auth/mockCurrentUser';
+import { signUp } from '@/lib/auth/session';
+import { MAX_TEXTO } from '@/lib/workflow/validation';
 import { PASSWORD_HINT } from '@/schemas/common';
 import { registerSchema, type RegisterInput } from '@/schemas/login.schema';
 import { LoginLayout } from './LoginPage';
@@ -14,10 +14,9 @@ import { LoginLayout } from './LoginPage';
 /** Primera cuenta del sistema: crea el taller y su Admin, y lleva a la configuración inicial. */
 export default function RegisterPage() {
   // null mientras se consulta; false si ya no hay lugar para otro taller
-  const [abierto, setAbierto] = useState<boolean | null>(isMockApi ? false : null);
+  const [abierto, setAbierto] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (isMockApi) return;
     void apiClient.getSetupStatus().then((s) => setAbierto(s.registroAbierto), () => setAbierto(true));
   }, []);
 
@@ -41,7 +40,7 @@ export default function RegisterPage() {
     return (
       <LoginLayout
         title="Crear cuenta"
-        subtitle={isMockApi ? 'La demo no tiene registro: entrá con un rol de prueba.' : 'El registro de talleres nuevos está cerrado por el momento.'}
+        subtitle="El registro de talleres nuevos está cerrado por el momento."
       >
         <div className="mt-8">
           <LinkButton href="/login">Ir a iniciar sesión</LinkButton>
@@ -51,7 +50,10 @@ export default function RegisterPage() {
   }
 
   return (
-    <LoginLayout title="Crear cuenta de taller" subtitle="Vas a ser el Admin del taller. Después definís quién cumple cada rol.">
+    <LoginLayout
+      title="Crear cuenta de taller"
+      subtitle="Vas a ser el Admin del taller. Antes de usar el sistema vas a tener que asignar todos los roles: Supervisor, Recepción y Técnico."
+    >
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-8 flex flex-col gap-5">
         {errors.root?.message && (
           <p role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">
@@ -59,8 +61,8 @@ export default function RegisterPage() {
             {errors.root.message}
           </p>
         )}
-        <Input id="tallerNombre" label="Nombre del taller" autoFocus required leftIcon={<Building2 aria-hidden="true" />} error={errors.tallerNombre?.message} {...register('tallerNombre')} />
-        <Input id="nombre" label="Tu nombre" autoComplete="name" required leftIcon={<UserRound aria-hidden="true" />} error={errors.nombre?.message} {...register('nombre')} />
+        <Input id="tallerNombre" label="Nombre del taller" autoFocus required maxLength={MAX_TEXTO} leftIcon={<Building2 aria-hidden="true" />} error={errors.tallerNombre?.message} {...register('tallerNombre')} />
+        <Input id="nombre" label="Tu nombre" autoComplete="name" required maxLength={MAX_TEXTO} leftIcon={<UserRound aria-hidden="true" />} error={errors.nombre?.message} {...register('nombre')} />
         <Input id="email" label="Email" type="email" autoComplete="username" required leftIcon={<Mail aria-hidden="true" />} error={errors.email?.message} {...register('email')} />
         <Input id="password" label="Contraseña" type="password" autoComplete="new-password" required hint={PASSWORD_HINT} leftIcon={<Lock aria-hidden="true" />} error={errors.password?.message} {...register('password')} />
         <Input id="confirmar" label="Repetí la contraseña" type="password" autoComplete="new-password" required leftIcon={<Lock aria-hidden="true" />} error={errors.confirmar?.message} {...register('confirmar')} />

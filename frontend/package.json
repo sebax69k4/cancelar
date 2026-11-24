@@ -10,9 +10,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "check": "astro check",
-    "dev:demo": "astro dev --mode demo",
-    "build:demo": "astro build --mode demo"
+    "check": "astro check"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.7",

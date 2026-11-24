@@ -1,7 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { subscribeCurrentUser } from '@/lib/auth/mockCurrentUser';
-import { subscribeClock } from '@/lib/clock';
-import { subscribeDb } from '@/mocks/db';
+import { subscribeCurrentUser } from '@/lib/auth/session';
 import { isApiError } from './errors';
 
 export const queryClient = new QueryClient({
@@ -31,15 +29,7 @@ export const queryKeys = {
   alerts: ['alerts'] as const,
 };
 
-/*
- * DEMO: los datos viven en localStorage. Cuando cambian (esta u otra pestaña),
- * cambia el reloj simulado o el rol, se invalidan todas las consultas.
- * Con NestJS esto se reemplaza por invalidaciones puntuales en cada mutación
- * (y opcionalmente WebSocket/SSE).
- */
+/* Al iniciar o cerrar sesión se descarta todo lo cargado: los datos son de otra persona. */
 if (typeof window !== 'undefined') {
-  const invalidate = () => void queryClient.invalidateQueries();
-  subscribeDb(invalidate);
-  subscribeClock(invalidate);
-  subscribeCurrentUser(invalidate);
+  subscribeCurrentUser(() => void queryClient.invalidateQueries());
 }

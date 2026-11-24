@@ -1,8 +1,10 @@
 /**
- * Modo de datos:
- *  - sin PUBLIC_API_URL → demo con localStorage (MockApiClient + sesión simulada)
- *  - con PUBLIC_API_URL (ej. http://localhost:3000/api) → backend NestJS real
+ * Dirección del backend NestJS (ej. https://api.mitaller.com/api). Es obligatoria: sin ella
+ * el frontend no compila, así nunca se publica una versión que no sabe a qué servidor hablar.
  */
-export const API_URL: string | undefined = import.meta.env.PUBLIC_API_URL?.replace(/\/$/, '') || undefined;
+const url = import.meta.env.PUBLIC_API_URL?.trim().replace(/\/$/, '');
+if (!url) {
+  throw new Error('Falta PUBLIC_API_URL en frontend/.env (ej. PUBLIC_API_URL=http://localhost:3000/api)');
+}
 
-export const isMockApi = API_URL === undefined;
+export const API_URL: string = url;

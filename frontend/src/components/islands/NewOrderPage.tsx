@@ -23,7 +23,6 @@ import { useClients } from '@/hooks/useClients';
 import { useEquipment } from '@/hooks/useEquipment';
 import { useCreateOrder } from '@/hooks/useOrders';
 import { errorMessage, isApiError } from '@/lib/api/errors';
-import { now } from '@/lib/clock';
 import { cn } from '@/lib/cn';
 import { IMPACTO_LABEL, rolesLabel, TIPO_EQUIPO_LABEL, URGENCIA_LABEL } from '@/lib/domain/labels';
 import { formatMoney } from '@/lib/format';
@@ -62,7 +61,7 @@ function Step({ n, title, icon, done, children, disabled }: {
 }
 
 function plusDays(days: number): string {
-  return localDate(now() + days * 86_400_000);
+  return localDate(Date.now() + days * 86_400_000);
 }
 
 function NewOrderForm() {
@@ -160,8 +159,9 @@ function NewOrderForm() {
   const loadingEquipment = equipment.isPending || equipment.isPlaceholderData;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="flex min-w-0 flex-col gap-6">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+      {/* @container: las grillas internas se acomodan al ancho real de la columna, no al de la ventana */}
+      <div className="@container flex min-w-0 flex-col gap-6">
         {/* 1. Cliente */}
         <Step n={1} title="Cliente" icon={<UserRound />} done={Boolean(cliente)}>
           {newClientName !== null ? (
@@ -210,7 +210,7 @@ function NewOrderForm() {
               ) : clientEquipment.length === 0 ? (
                 <p className="text-sm text-muted">Este cliente no tiene equipos registrados.</p>
               ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2 @lg:grid-cols-2">
                   {clientEquipment.map((e) => {
                     const Icon = TIPO_EQUIPO_ICON[e.tipo];
                     const checked = v.equipoId === e.id;
@@ -274,7 +274,7 @@ function NewOrderForm() {
         {/* 4. Asignación y prioridad */}
         <Step n={4} title="Asignación y prioridad" icon={<ClipboardPlus />} done={Boolean(v.responsableId && v.impacto && v.urgencia)}>
           <div className="flex flex-col gap-5">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 @2xl:grid-cols-3">
               <Select
                 id="no-resp"
                 label="Responsable"
@@ -304,7 +304,7 @@ function NewOrderForm() {
                 {...register('fechaEstimada')}
               />
             </div>
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid gap-5 @2xl:grid-cols-2">
               <div className="flex flex-col gap-4">
                 <Controller
                   control={control}
@@ -349,7 +349,7 @@ function NewOrderForm() {
       </div>
 
       {/* Resumen */}
-      <aside aria-label="Resumen de la orden" className="lg:sticky lg:top-20 lg:self-start">
+      <aside aria-label="Resumen de la orden" className="xl:sticky xl:top-20 xl:self-start">
         <Card>
           <div className="border-b border-border px-4 py-3">
             <h2 className="text-base font-semibold">Resumen</h2>

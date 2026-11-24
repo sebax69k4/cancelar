@@ -44,7 +44,7 @@ export function NextStepCard({ order, user, onAdvance, onOtherState, onReopen, o
           <p className="text-muted">
             {order.resultado === 'ABANDONADO'
               ? 'El cliente no retiró el equipo.'
-              : order.fechaCierre ? `Entregada el ${formatDateTime(order.fechaCierre)}.` : 'Entregada al cliente.'}
+              : order.fechaCierre ? `Entregada el ${formatDateTime(order.fechaCierre)}` : 'Entregada al cliente.'}
           </p>
         </div>
         {can(user.roles, 'order.reopen') && (

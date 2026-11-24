@@ -12,6 +12,7 @@ import type { Servicio, Usuario } from '../generated/prisma/client';
 import { Prisma } from '../generated/prisma/client';
 import { corteDeSesiones } from '../auth/sessions';
 import { PrismaService } from '../prisma/prisma.service';
+import { eventoSeguridad } from '../common/security-log';
 import type { CreateServiceDto, CreateUserDto, UpdateServiceDto, UpdateTallerDto, UpdateUserDto } from './setup.dto';
 
 const toUsuarioAdmin = (u: Usuario) => ({ id: u.id, nombre: u.nombre, email: u.email, roles: u.roles, activo: u.activo });
@@ -93,6 +94,7 @@ export class SetupService {
           passwordHash: await argon2.hash(dto.password),
         },
       });
+      eventoSeguridad('usuario.creado', { actor: user.id, usuario: u.id, taller: user.tallerId, roles: dto.roles.join(',') }, 'log');
       return toUsuarioAdmin(u);
     } catch (e) {
       // El email es único en todo el sistema: con él se ingresa
@@ -120,7 +122,12 @@ export class SetupService {
       if (dto.password) data.passwordHash = await argon2.hash(dto.password);
       // Reseteo de contraseña o desactivación: las sesiones abiertas de esa persona dejan de valer
       if (dto.password || dto.activo === false) data.sesionesDesde = corteDeSesiones();
-      return toUsuarioAdmin(await tx.usuario.update({ where: { id }, data }));
+      const actualizado = await tx.usuario.update({ where: { id }, data });
+      eventoSeguridad('usuario.modificado', {
+        actor: actor.id, usuario: id, taller: actor.tallerId,
+        roles: dto.roles?.join(','), activo: dto.activo, claveReseteada: dto.password ? true : undefined,
+      }, 'log');
+      return toUsuarioAdmin(actualizado);
     });
   }
 

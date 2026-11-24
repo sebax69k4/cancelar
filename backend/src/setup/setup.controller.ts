@@ -10,7 +10,7 @@ import { SetupService } from './setup.service';
 export class SetupController {
   constructor(private readonly setup: SetupService) {}
 
-  /** Público: cuántos talleres hay, si se puede registrar otro y si está el borrado de pruebas. */
+  /** Público: si ya hay talleres registrados y si el registro de talleres nuevos está abierto. */
   @Public()
   @Get('status')
   status() {

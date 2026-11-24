@@ -19,6 +19,13 @@ export const ORDER_INCLUDE = {
   },
 } satisfies Prisma.OrdenInclude;
 
+/**
+ * Lo que necesitan las reglas para decidir, sin los datos de personas, cliente y equipo. Dentro de una
+ * transacción las consultas van de a una: con la base en otro servidor, cada una cuesta un viaje.
+ */
+export const REGLAS_INCLUDE = { evidencias: true, escalamientos: true } satisfies Prisma.OrdenInclude;
+export type OrdenReglas = Prisma.OrdenGetPayload<{ include: typeof REGLAS_INCLUDE }>;
+
 export type OrdenFull = Prisma.OrdenGetPayload<{ include: typeof ORDER_INCLUDE }>;
 
 export function toUsuario(u: Usuario) {

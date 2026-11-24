@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Cpu } from 'lucide-react';
-import { useClockOffset } from '@/hooks/useClock';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { isMockApi } from '@/lib/api/apiClient';
-import { now } from '@/lib/clock';
 import { rolesLabel } from '@/lib/domain/labels';
 
 /** Barra de título de la ventana principal (solo estilo clásico). */
@@ -20,16 +17,14 @@ export function WindowTitleBar({ title }: { title: string }) {
 const timeFmt = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
 function LiveClock() {
-  const offset = useClockOffset();
-  const [t, setT] = useState(() => now());
+  const [t, setT] = useState(() => Date.now());
   useEffect(() => {
-    const id = window.setInterval(() => setT(now()), 1000);
+    const id = window.setInterval(() => setT(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
   return (
-    <span className="ui-status-cell px-2 font-mono tabular-nums" title={offset ? 'Reloj simulado de la demo' : 'Hora actual'}>
+    <span className="ui-status-cell px-2 font-mono tabular-nums" title="Hora actual">
       {timeFmt.format(t)}
-      {offset > 0 && <span className="text-warning"> (+{offset} h)</span>}
     </span>
   );
 }
@@ -46,9 +41,7 @@ export function StatusBar() {
             Usuario: {user.nombre} ({rolesLabel(user.roles)})
           </span>
         )}
-        <span className="ui-status-cell hidden px-2 md:inline">
-          {isMockApi ? 'Datos: este navegador (demo)' : 'Datos: servidor'}
-        </span>
+        <span className="ui-status-cell hidden px-2 md:inline">Datos: servidor</span>
       </div>
       <LiveClock />
     </footer>

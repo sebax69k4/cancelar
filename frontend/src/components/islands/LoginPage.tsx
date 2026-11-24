@@ -1,42 +1,33 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  AlertCircle, ClipboardList, Cpu, FlaskConical, Lock, LogIn, Mail, ShieldCheck, Wrench, type LucideIcon,
-} from 'lucide-react';
+import { AlertCircle, Cpu, Lock, LogIn, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Toaster } from '@/components/ui/Toast';
 import { apiClient } from '@/lib/api/apiClient';
-import { isMockApi } from '@/lib/api/config';
-import {
-  firstUserWithRole, getMockCurrentUser, loadSession, signInAs, signInWithPassword,
-} from '@/lib/auth/mockCurrentUser';
-import { cn } from '@/lib/cn';
-import { ROL_LABEL } from '@/lib/domain/labels';
-import { toast } from '@/lib/toast';
-import { loginSchema, realLoginSchema, type LoginInput, type RealLoginInput } from '@/schemas/login.schema';
-import type { Rol } from '@/types/domain';
+import { loadSession, signInWithPassword } from '@/lib/auth/session';
+import { loginSchema, type LoginInput } from '@/schemas/login.schema';
 
-const ROLE_CARDS: readonly { rol: Rol; icon: LucideIcon; desc: string }[] = [
-  { rol: 'ADMIN', icon: ShieldCheck, desc: 'Acceso completo' },
-  { rol: 'SUPERVISOR', icon: ClipboardList, desc: 'Valida, cierra, bloquea, escala y reabre' },
-  { rol: 'RECEPCION', icon: Mail, desc: 'Registra clientes, equipos y órdenes' },
-  { rol: 'TECNICO', icon: Wrench, desc: 'Trabaja sus órdenes asignadas' },
-];
-
-function safeNext(): string {
-  const next = new URLSearchParams(window.location.search).get('next');
-  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+/**
+ * Adónde volver después de iniciar sesión: solo páginas de este mismo sitio. Sin esto, un link
+ * como /login?next=/\otro-sitio.com (el navegador toma «/\» como «//») llevaría a una página
+ * falsa justo después de que la persona puso su contraseña.
+ */
+export function safeNext(search: string = window.location.search, origin: string = window.location.origin): string {
+  const next = new URLSearchParams(search).get('next');
+  if (!next || !next.startsWith('/') || next.startsWith('//') || /[\\\p{Cc}]/u.test(next)) return '/dashboard';
+  try {
+    const url = new URL(next, origin);
+    return url.origin === origin ? url.pathname + url.search + url.hash : '/dashboard';
+  } catch {
+    return '/dashboard';
+  }
 }
 
+/** Inicio de sesión contra el backend (cookie HTTP-only). */
 export default function LoginPage() {
-  return isMockApi ? <DemoLogin /> : <RealLogin />;
-}
-
-/** Login real contra el backend (cookie HTTP-only). */
-function RealLogin() {
   useEffect(() => {
     void loadSession().then((u) => {
       if (u) window.location.replace(safeNext());
@@ -47,13 +38,14 @@ function RealLogin() {
       else setRegistroAbierto(s.registroAbierto);
     }, () => undefined);
   }, []);
-  const [registroAbierto, setRegistroAbierto] = useState(false);
+  // Visible salvo que el servidor diga que el registro está cerrado (no depende de que conteste rápido)
+  const [registroAbierto, setRegistroAbierto] = useState(true);
 
   const {
     register, handleSubmit, setError, formState: { errors, isSubmitting },
-  } = useForm<RealLoginInput>({ resolver: zodResolver(realLoginSchema), defaultValues: { email: '', password: '' } });
+  } = useForm<LoginInput>({ resolver: zodResolver(loginSchema), defaultValues: { email: '', password: '' } });
 
-  async function onSubmit(data: RealLoginInput) {
+  async function onSubmit(data: LoginInput) {
     const res = await signInWithPassword(data.email, data.password);
     if (!res.ok) {
       setError('root', { message: res.message });
@@ -103,11 +95,6 @@ function RealLogin() {
         <p className="text-center text-xs">
           <a href="/" className="text-muted hover:underline">Volver a la portada</a>
         </p>
-        {import.meta.env.DEV && (
-          <p className="text-center text-xs text-muted">
-            Desarrollo: los usuarios iniciales están en <code className="font-mono">backend/README.md</code>.
-          </p>
-        )}
       </form>
     </LoginLayout>
   );
@@ -155,100 +142,5 @@ export function LoginLayout({ title = 'Iniciar sesión', subtitle, children }: {
       </main>
       <Toaster />
     </div>
-  );
-}
-
-/** Login de la demo: sin autenticación real, se elige un rol de prueba. */
-function DemoLogin() {
-  useEffect(() => {
-    if (getMockCurrentUser()) window.location.replace(safeNext());
-  }, []);
-
-  const {
-    register, handleSubmit, setValue, watch, formState: { errors, isSubmitting },
-  } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: firstUserWithRole('SUPERVISOR').email, password: 'demo1234', rol: 'SUPERVISOR' },
-  });
-
-  const rol = watch('rol');
-
-  async function onSubmit(data: LoginInput) {
-    await new Promise((r) => setTimeout(r, 400)); // latencia simulada
-    const user = signInAs(firstUserWithRole(data.rol).id);
-    if (!user) {
-      toast.error('No se pudo iniciar sesión');
-      return;
-    }
-    window.location.href = safeNext();
-  }
-
-  return (
-    <LoginLayout subtitle="Ingresá con tu cuenta del taller.">
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-8 flex flex-col gap-5">
-            <Input
-              id="email"
-              label="Email"
-              type="email"
-              autoComplete="username"
-              leftIcon={<Mail aria-hidden="true" />}
-              required
-              error={errors.email?.message}
-              {...register('email')}
-            />
-            <Input
-              id="password"
-              label="Contraseña"
-              type="password"
-              autoComplete="current-password"
-              leftIcon={<Lock aria-hidden="true" />}
-              required
-              error={errors.password?.message}
-              {...register('password')}
-            />
-
-            <fieldset className="rounded-lg border border-dashed border-amber-400 bg-amber-50/60 p-3 dark:border-amber-400/40 dark:bg-amber-400/5">
-              <legend className="flex items-center gap-1.5 px-1 text-xs font-semibold text-amber-900 dark:text-amber-200">
-                <FlaskConical className="size-3.5" aria-hidden="true" />
-                Rol de prueba (solo demo)
-              </legend>
-              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Rol de prueba">
-                {ROLE_CARDS.map(({ rol: r, icon: Icon, desc }) => {
-                  const checked = r === rol;
-                  return (
-                    <label
-                      key={r}
-                      className={cn(
-                        'flex cursor-pointer flex-col gap-1 rounded-md border bg-surface p-2.5 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus',
-                        checked ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-border-strong',
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        value={r}
-                        className="sr-only"
-                        {...register('rol', {
-                          onChange: () => setValue('email', firstUserWithRole(r).email),
-                        })}
-                      />
-                      <span className="flex items-center gap-1.5 text-sm font-semibold">
-                        <Icon className={cn('size-4', checked ? 'text-primary' : 'text-muted')} aria-hidden="true" />
-                        {ROL_LABEL[r]}
-                      </span>
-                      <span className="text-[11px] leading-snug text-muted">{desc}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-
-            <Button type="submit" size="lg" loading={isSubmitting} leftIcon={<LogIn aria-hidden="true" />}>
-              Ingresar
-            </Button>
-            <p className="text-center text-xs text-muted">
-              Demo sin autenticación real: cualquier contraseña de 4+ caracteres sirve.
-            </p>
-          </form>
-    </LoginLayout>
   );
 }

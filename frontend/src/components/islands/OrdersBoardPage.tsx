@@ -20,6 +20,7 @@ import { errorMessage } from '@/lib/api/errors';
 import type { OrderFilters } from '@/lib/api/apiClient';
 import { ESTADO_LABEL, PRIORIDAD_LABEL, rolesLabel } from '@/lib/domain/labels';
 import { readStorage, writeStorage } from '@/lib/storage';
+import { MAX_BUSQUEDA } from '@/lib/workflow/validation';
 import { ESTADOS, PRIORIDADES, type EstadoOrden, type OrdenResumen, type Prioridad } from '@/types/domain';
 
 type OrdersView = 'tablero' | 'lista';
@@ -95,6 +96,7 @@ function Board() {
             label="Buscar"
             type="search"
             leftIcon={<Search aria-hidden="true" />}
+            maxLength={MAX_BUSQUEDA}
             placeholder="Nº de orden, cliente, teléfono o serie"
             value={filters.q ?? ''}
             onChange={(e) => set({ q: e.target.value || undefined })}

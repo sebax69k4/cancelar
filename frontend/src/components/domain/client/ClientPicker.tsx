@@ -5,6 +5,7 @@ import { controlBase } from '@/components/ui/Field';
 import { useClients } from '@/hooks/useClients';
 import { useDebounced } from '@/hooks/useDebounced';
 import { cn } from '@/lib/cn';
+import { MAX_BUSQUEDA } from '@/lib/workflow/validation';
 import type { Cliente } from '@/types/domain';
 
 export interface ClientPickerProps {
@@ -106,6 +107,7 @@ export function ClientPicker({ value, onChange, onCreateNew, error }: ClientPick
           aria-describedby={error ? `${id}-error` : `${id}-hint`}
           autoComplete="off"
           value={query}
+          maxLength={MAX_BUSQUEDA}
           placeholder="Nombre, teléfono o email"
           onChange={(e) => {
             setQuery(e.target.value);

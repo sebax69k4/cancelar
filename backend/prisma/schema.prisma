@@ -340,3 +340,12 @@ model Contador {
   clave String @id
   valor Int
 }
+
+/// Sesiones cerradas con «Cerrar sesión» antes de vencer: su token ya no vale aunque alguien lo haya copiado.
+/// Cada fila se borra cuando el token habría vencido igual.
+model SesionCerrada {
+  jti    String   @id
+  expira DateTime
+
+  @@index([expira])
+}

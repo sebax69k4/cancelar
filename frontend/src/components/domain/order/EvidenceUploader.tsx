@@ -6,16 +6,16 @@ import { formatDateTime } from '@/lib/format';
 import { notifyError } from '@/lib/notify';
 import { toast } from '@/lib/toast';
 import { useUsers } from '@/hooks/useCatalog';
-import { isMockApi } from '@/lib/api/config';
 import type { Evidencia } from '@/types/domain';
 import type { EvidenceInput } from '@/lib/api/apiClient';
+import { MAX_EVIDENCIA_MB } from '@/lib/workflow/validation';
 
 /** Igual que EVIDENCE_MIME_TYPES del backend: sin SVG (puede contener scripts). */
 const ACCEPTED_TYPES: readonly string[] = [
   'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'application/pdf',
 ];
 const ACCEPT = ACCEPTED_TYPES.join(',');
-const MAX_MB = 10;
+const MAX_MB = MAX_EVIDENCIA_MB;
 
 export interface EvidenceUploaderProps {
   evidencias: readonly Evidencia[];
@@ -23,8 +23,8 @@ export interface EvidenceUploaderProps {
   busy?: boolean;
   onAdd: (file: EvidenceInput) => Promise<unknown>;
   onRemove: (id: string) => Promise<unknown>;
-  /** URL del archivo (null en la demo, donde el archivo no se guarda). */
-  fileUrl?: (evidenciaId: string) => string | null;
+  /** URL para ver o descargar el archivo. */
+  fileUrl?: (evidenciaId: string) => string;
 }
 
 function formatSize(kb: number): string {
@@ -32,8 +32,7 @@ function formatSize(kb: number): string {
 }
 
 /**
- * Adjuntador de evidencia. En la demo solo registra nombre, tipo y tamaño;
- * con backend el archivo se sube (multipart a /orders/:id/evidence) y se puede abrir.
+ * Adjuntador de evidencia: el archivo se sube (multipart a /orders/:id/evidence) y se puede abrir.
  */
 export function EvidenceUploader({ evidencias, canEdit, busy, onAdd, onRemove, fileUrl }: EvidenceUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,9 +89,7 @@ export function EvidenceUploader({ evidencias, canEdit, busy, onAdd, onRemove, f
             </Button>
           </p>
           <p className="text-xs text-muted">
-            {isMockApi
-              ? `Demo: solo se registra el nombre y el tamaño, el archivo no se sube. Máx. ${MAX_MB} MB.`
-              : `Imágenes o PDF, máx. ${MAX_MB} MB por archivo.`}
+            {`Imágenes o PDF, máx. ${MAX_MB} MB por archivo.`}
           </p>
           <input
             ref={inputRef}

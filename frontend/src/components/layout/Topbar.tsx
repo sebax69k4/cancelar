@@ -3,11 +3,10 @@ import { Button } from '@/components/ui/Button';
 import { SkinToggle } from '@/components/ui/SkinToggle';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { signOut } from '@/lib/auth/mockCurrentUser';
+import { signOut } from '@/lib/auth/session';
 import { rolesLabel } from '@/lib/domain/labels';
 import { initials } from '@/lib/format';
 import { GlobalSearch } from './GlobalSearch';
-import { RoleSwitcher } from './RoleSwitcher';
 
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const user = useCurrentUser();
@@ -21,9 +20,6 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
       <GlobalSearch />
 
       <div className="ml-auto flex items-center gap-1.5">
-        <div className="hidden sm:block">
-          <RoleSwitcher />
-        </div>
         <SkinToggle />
         <ThemeToggle />
         {user && (

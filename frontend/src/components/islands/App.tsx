@@ -6,7 +6,7 @@
 import { Fragment, useEffect, useRef, useSyncExternalStore, type ReactElement } from 'react';
 import { NAV_ITEMS } from '@/components/layout/nav';
 import { prefetchRoute } from '@/lib/api/prefetch';
-import { loadSession } from '@/lib/auth/mockCurrentUser';
+import { loadSession } from '@/lib/auth/session';
 import { can } from '@/lib/auth/permissions';
 import { getRoute, isAppRoute, navigate, setRouterMounted, subscribeRoute, type RouteState } from '@/lib/router';
 import AccountPage from './AccountPage';
@@ -14,7 +14,6 @@ import AlertsPage from './AlertsPage';
 import ClientsPage from './ClientsPage';
 import ConfigurationPage from './ConfigurationPage';
 import DashboardPage from './DashboardPage';
-import DesignSystemPage from './DesignSystemPage';
 import EquipmentPage from './EquipmentPage';
 import NewOrderPage from './NewOrderPage';
 import OrderDetailPage from './OrderDetailPage';
@@ -44,8 +43,6 @@ function resolve(route: RouteState): Resolved | null {
       return { title: 'Configuración', element: <ConfigurationPage /> };
     case '/cuenta':
       return { title: 'Mi cuenta', element: <AccountPage /> };
-    case '/design':
-      return { title: 'Sistema de diseño', element: <DesignSystemPage /> };
     default: {
       const m = /^\/ordenes\/([^/]+)$/.exec(p);
       if (m?.[1]) return { title: 'Orden de servicio', element: <OrderDetailPage id={decodeURIComponent(m[1])} /> };

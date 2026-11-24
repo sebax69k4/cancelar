@@ -39,7 +39,6 @@ import { ABANDONO_DIAS, canAbandon, canEscalate, openEscalation } from '@/lib/wo
 import {
   MIN_COMENTARIO, MIN_MOTIVO, NEXT_STATE, canActOnOrder, canValidate, closeChecklist, isSinReparar,
 } from '@/lib/workflow/transitions';
-import { now } from '@/lib/clock';
 import { NextStepCard } from '@/components/domain/order/NextStepCard';
 import { WorkflowStepper } from '@/components/domain/order/WorkflowStepper';
 import type { OrdenResumen } from '@/types/domain';
@@ -111,7 +110,7 @@ function Detail({ id }: { id: string }) {
     return (
       <div className="space-y-4" aria-hidden="true">
         <Skeleton className="h-24" />
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <Skeleton className="h-96" />
           <Skeleton className="h-96" />
         </div>
@@ -125,7 +124,7 @@ function Detail({ id }: { id: string }) {
       <Card>
         <ErrorState
           title={status === 404 ? 'Orden no encontrada' : status === 403 ? 'No tenés acceso a esta orden' : 'No se pudo cargar la orden'}
-          message={status === 404 ? 'Puede que la demo se haya reiniciado o el enlace sea incorrecto.' : errorMessage(query.error)}
+          message={status === 404 ? 'Puede que el enlace sea incorrecto o que la orden sea de otro taller.' : errorMessage(query.error)}
           onRetry={status >= 500 || status === 0 ? () => void query.refetch() : undefined}
         />
         <div className="flex justify-center pb-8">
@@ -145,7 +144,7 @@ function Detail({ id }: { id: string }) {
   const showEscalate = canEscalate(order, user).ok;
   const showClose = order.estado === 'LISTO_PARA_RETIRAR' && (can(user.roles, 'order.close') || can(user.roles, 'order.deliver'));
   const listo = order.historial.findLast((h) => h.estadoNuevo === 'LISTO_PARA_RETIRAR');
-  const showAbandon = canAbandon(order, user, listo ? new Date(listo.fecha).getTime() : null, now()).ok;
+  const showAbandon = canAbandon(order, user, listo ? new Date(listo.fecha).getTime() : null, Date.now()).ok;
   const validateRule = canValidate(order, user);
   const pendingClose = closeChecklist(order).filter((i) => !i.done).length;
   const blockEntry = lastEntry(order, 'BLOQUEO');
@@ -329,7 +328,7 @@ function Detail({ id }: { id: string }) {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         {/* Pestañas */}
         <Card className="min-w-0 p-4">
           <Tabs

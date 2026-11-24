@@ -29,18 +29,17 @@ export type Permission =
   | 'order.view.all'
   | 'users.manage'
   | 'order.edit.own'
-  | 'order.edit'
-  | 'demo.reset';
+  | 'order.edit';
 
 const ALL: readonly Permission[] = [
   'nav.dashboard', 'nav.ordenes', 'nav.clientes', 'nav.equipos', 'nav.alertas',
   'client.create', 'equipment.create', 'order.create', 'order.assign',
   'order.transition', 'order.block', 'order.unblock', 'order.escalate',
   'order.validate', 'order.close', 'order.reopen', 'order.edit', 'order.abandon', 'order.view.all',
-  'escalation.level2', 'escalation.level3', 'users.manage', 'demo.reset',
+  'escalation.level2', 'escalation.level3', 'users.manage',
 ];
 
-const ONLY_ADMIN: readonly Permission[] = ['demo.reset', 'order.abandon', 'escalation.level3', 'users.manage'];
+const ONLY_ADMIN: readonly Permission[] = ['order.abandon', 'escalation.level3', 'users.manage'];
 
 export const ROLE_PERMISSIONS: Readonly<Record<Rol, readonly Permission[]>> = {
   ADMIN: ALL,

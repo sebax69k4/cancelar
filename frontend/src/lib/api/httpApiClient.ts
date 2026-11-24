@@ -1,6 +1,6 @@
 /**
  * Cliente HTTP real contra la API REST de NestJS.
- * Implementa la misma interfaz `ApiClient` que el mock: la UI no cambia.
+ * Implementa la interfaz `ApiClient` (ver apiClient.ts) con fetch y la cookie de sesión.
  *
  * Se activa definiendo PUBLIC_API_URL en `.env` (ver README, sección NestJS).
  * Autenticación: cookie HTTP-only emitida por el backend (credentials: 'include').
@@ -10,7 +10,7 @@ import type {
   DashboardData, EvidenceInput, OrderFilters, ResolveEscalationInput, MySetup, ServicioAdmin, SetupProgress, SetupStatus,
   UpdateOrderInput, UpdateServiceInput, UpdateTallerInput, UpdateUserInput, UsuarioAdmin,
 } from './apiClient';
-import { handleUnauthorized } from '@/lib/auth/mockCurrentUser';
+import { handleUnauthorized } from '@/lib/auth/session';
 import { ApiError, type ApiErrorCode } from './errors';
 import type { CausaEscalamiento, Cliente, Equipo, EstadoOrden, OrdenResumen, Servicio, Usuario } from '@/types/domain';
 
@@ -238,9 +238,5 @@ export class HttpApiClient implements ApiClient {
 
   markCriticalReportRead(informeId: string) {
     return this.request<void>('PATCH', `/critical-reports/${encodeURIComponent(informeId)}/read`);
-  }
-
-  resetDemo(): Promise<void> {
-    return Promise.reject(new ApiError('FORBIDDEN', 'Reiniciar la demo no está disponible con el backend real'));
   }
 }

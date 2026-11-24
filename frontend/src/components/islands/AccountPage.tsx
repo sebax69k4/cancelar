@@ -7,7 +7,6 @@ import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { apiClient } from '@/lib/api/apiClient';
-import { isMockApi } from '@/lib/api/config';
 import { rolesLabel } from '@/lib/domain/labels';
 import { notifyError } from '@/lib/notify';
 import { toast } from '@/lib/toast';
@@ -34,10 +33,7 @@ function Content() {
     <Card className="max-w-lg">
       <CardHeader icon={<KeyRound aria-hidden="true" />} title="Cambiar contraseña" description={user ? `${user.email} · ${rolesLabel(user.roles)}` : undefined} />
       <CardBody>
-        {isMockApi ? (
-          <p className="text-sm text-muted">En la demo no hay contraseñas reales.</p>
-        ) : (
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
             <Input id="actual" label="Contraseña actual" type="password" autoComplete="current-password" required error={errors.actual?.message} {...register('actual')} />
             <Input id="nueva" label="Contraseña nueva" type="password" autoComplete="new-password" required hint={PASSWORD_HINT} error={errors.nueva?.message} {...register('nueva')} />
             <Input id="confirmar" label="Repetí la contraseña nueva" type="password" autoComplete="new-password" required error={errors.confirmar?.message} {...register('confirmar')} />
@@ -45,7 +41,6 @@ function Content() {
               <Button type="submit" loading={isSubmitting}>Guardar</Button>
             </div>
           </form>
-        )}
       </CardBody>
     </Card>
   );

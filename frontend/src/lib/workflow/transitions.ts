@@ -1,6 +1,6 @@
 /**
- * Reglas del workflow. Funciones puras: las usa la UI (para explicar qué falta)
- * y el apiClient mock (para rechazar). El backend NestJS debe replicarlas.
+ * Reglas del workflow. Funciones puras: la UI las usa para explicar qué falta antes de
+ * mandar nada. El backend (backend/src/domain) tiene las mismas y es el que decide.
  */
 import { can } from '@/lib/auth/permissions';
 import { ESTADO_LABEL } from '@/lib/domain/labels';

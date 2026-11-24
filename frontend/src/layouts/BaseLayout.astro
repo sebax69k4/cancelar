@@ -26,6 +26,8 @@ const { title } = Astro.props;
           var p = localStorage.getItem('st.theme');
           var dark = p === 'dark' || (p !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
           if (dark) root.classList.add('dark');
+          // Restos de la antigua versión de prueba (datos, sesión y reloj guardados en el navegador)
+          ['st.db.v1', 'st.session', 'st.clock.offsetHours'].forEach(function (k) { localStorage.removeItem(k); });
         } catch (e) {
           root.classList.add('skin-classic');
         }

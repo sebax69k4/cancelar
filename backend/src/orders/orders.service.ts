@@ -1,8 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { AuthUser } from '../auth/auth.decorators';
 import { WorkflowException, enforce } from '../common/errors';
-import { ORDER_INCLUDE, toOrdenResumen, type OrdenFull, type OrdenResumenDto } from '../common/mappers';
+import { ORDER_INCLUDE, REGLAS_INCLUDE, toOrdenResumen, type OrdenFull, type OrdenReglas, type OrdenResumenDto } from '../common/mappers';
 import { digits, normalize, escapeLike } from '../common/text';
 import {
   RESOLUCIONES_SIN_REPARACION, autoEscalation, canAbandon, canEscalate, canRaiseEscalation, canResolveEscalation,
@@ -11,8 +13,8 @@ import {
 import { ESTADO_LABEL, RESOLUCION_LABEL } from '../domain/labels';
 import { can } from '../domain/permissions';
 import { calculatePriority } from '../domain/priority';
-import { MAX_DIAS_ESTIMADA, limiteFechaEstimada } from '../domain/validation';
-import { coincideFirma } from './evidence.signature';
+import { MAX_DIAS_ESTIMADA, MAX_EVIDENCIAS, limiteFechaEstimada } from '../domain/validation';
+import { nombreSeguro, problemaEvidencia } from './evidence.signature';
 import {
   canActOnOrder, canBlock, canReopen, canTransition, canUnblock, canValidate, isAssignedTo,
 } from '../domain/transitions';
@@ -20,6 +22,7 @@ import { Prisma } from '../generated/prisma/client';
 import type { EstadoOrden, Prioridad, TipoAccion } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { EvidenceStorage } from './evidence.storage';
+import { eventoSeguridad } from '../common/security-log';
 import type {
   CreateOrderDto, EscalateDto, OrdersQuery, ReopenDto, ResolveEscalationDto, TransitionDto, UpdateOrderDto,
 } from './orders.dto';
@@ -28,7 +31,7 @@ type Tx = Prisma.TransactionClient;
 
 /** Resultado de una acción del workflow: qué cambiar y qué registrar en el historial. */
 interface Mutation {
-  data: Prisma.OrdenUpdateInput;
+  data: Prisma.OrdenUncheckedUpdateInput;
   tipo: TipoAccion;
   comentario: string;
   estadoAnterior?: EstadoOrden;
@@ -111,12 +114,17 @@ export class OrdersService {
   }
 
   async get(user: AuthUser, id: string): Promise<OrdenResumenDto> {
-    return toOrdenResumen(await this.loadVisible(this.prisma, user, id));
+    const o = await this.prisma.orden.findFirst({ where: { id, tallerId: user.tallerId }, include: ORDER_INCLUDE });
+    return toOrdenResumen(this.assertVisible(user, o));
   }
 
-  private async loadVisible(tx: Tx, user: AuthUser, id: string): Promise<OrdenFull> {
+  /** La orden con lo justo para aplicar las reglas. */
+  private async loadVisible(tx: Tx, user: AuthUser, id: string): Promise<OrdenReglas> {
+    return this.assertVisible(user, await tx.orden.findFirst({ where: { id, tallerId: user.tallerId }, include: REGLAS_INCLUDE }));
+  }
+
+  private assertVisible<T extends OrdenReglas>(user: AuthUser, o: T | null): T {
     // Una orden de otro taller responde igual que una inexistente
-    const o = await tx.orden.findFirst({ where: { id, tallerId: user.tallerId }, include: ORDER_INCLUDE });
     if (!o) throw new NotFoundException('La orden no existe');
     if (!can(user.roles, 'order.view.all') && !isAssignedTo(o, user)) throw new ForbiddenException('Esta orden no está asignada a vos');
     return o;
@@ -128,7 +136,9 @@ export class OrdersService {
     const t = user.tallerId;
     const taller = await this.prisma.taller.findUnique({ where: { id: t } });
     if (!taller?.configurado) {
-      throw new WorkflowException('El taller todavía no está configurado', ['Un Admin tiene que completar la configuración inicial']);
+      throw new WorkflowException('El taller todavía no está configurado', [
+        'Antes de usar el sistema, un Admin tiene que asignar todos los roles (Supervisor, Recepción y Técnico) y terminar la configuración',
+      ]);
     }
     const [cliente, equipo, servicio, responsable, tecnico] = await Promise.all([
       this.prisma.cliente.findFirst({ where: { id: dto.clienteId, tallerId: t } }),
@@ -161,6 +171,7 @@ export class OrdersService {
         update: { valor: { increment: 1 } },
       });
       return tx.orden.create({
+        select: { id: true },
         data: {
           numero: `OS-${year}-${String(counter.valor).padStart(4, '0')}`,
           tallerId: t,
@@ -178,21 +189,26 @@ export class OrdersService {
             create: { usuarioId: user.id, tipo: 'CREACION', comentario: 'Orden creada en recepción', estadoNuevo: 'RECIBIDO' },
           },
         },
-        include: ORDER_INCLUDE,
       });
     });
-    return toOrdenResumen(created);
+    return this.resumen(created.id);
   }
 
   // ------------------------------------------------------------------ acciones del workflow
 
-  /** Carga, aplica reglas, actualiza y registra historial en una sola transacción. */
-  private mutate(user: AuthUser, id: string, fn: (o: OrdenFull, tx: Tx) => Promise<Mutation> | Mutation): Promise<OrdenResumenDto> {
-    return this.prisma.$transaction(async (tx) => {
+  /** La orden completa para responder. Se lee fuera de la transacción: ahí las consultas van en paralelo. */
+  private async resumen(id: string): Promise<OrdenResumenDto> {
+    return toOrdenResumen(await this.prisma.orden.findUniqueOrThrow({ where: { id }, include: ORDER_INCLUDE }));
+  }
+
+  /** Carga, aplica reglas, actualiza y registra historial en una sola transacción (con las consultas justas). */
+  private async mutate(user: AuthUser, id: string, fn: (o: OrdenReglas, tx: Tx) => Promise<Mutation> | Mutation): Promise<OrdenResumenDto> {
+    await this.prisma.$transaction(async (tx) => {
       const o = await this.loadVisible(tx, user, id);
       const m = await fn(o, tx);
-      await tx.orden.update({ where: { id }, data: m.data });
+      await tx.orden.update({ where: { id }, data: m.data, select: { id: true } });
       await tx.historial.create({
+        select: { id: true },
         data: {
           ordenId: id,
           usuarioId: user.id,
@@ -202,8 +218,8 @@ export class OrdersService {
           estadoNuevo: m.estadoNuevo ?? null,
         },
       });
-      return toOrdenResumen(await tx.orden.findUniqueOrThrow({ where: { id }, include: ORDER_INCLUDE }));
     });
+    return this.resumen(id);
   }
 
   update(user: AuthUser, id: string, dto: UpdateOrderDto): Promise<OrdenResumenDto> {
@@ -220,7 +236,7 @@ export class OrdersService {
         throw new ForbiddenException('Solo un Supervisor o Admin puede cambiar impacto y urgencia');
       }
 
-      const data: Prisma.OrdenUpdateInput = {};
+      const data: Prisma.OrdenUncheckedUpdateInput = {};
       const cambios: string[] = [];
       if (dto.diagnostico !== undefined) {
         data.diagnostico = dto.diagnostico || null;
@@ -229,14 +245,14 @@ export class OrdersService {
       if (dto.solucion !== undefined) {
         data.solucion = dto.solucion || null;
         data.validada = false; // la validación aplica a la solución vigente
-        data.validadaPor = { disconnect: true };
+        data.validadaPorId = null;
         cambios.push('solución');
       }
       if (dto.tecnicoId !== undefined) {
         if (dto.tecnicoId) {
           const t = await tx.usuario.findFirst({ where: { id: dto.tecnicoId, tallerId: user.tallerId } });
           if (!t?.roles.includes('TECNICO') || !t.activo) throw new BadRequestException('Técnico inválido');
-          data.tecnico = { connect: { id: dto.tecnicoId } };
+          data.tecnicoId = dto.tecnicoId;
         } else {
           // Una orden en curso sin técnico quedaría huérfana (ningún técnico la vería)
           if (o.estado !== 'RECIBIDO') {
@@ -244,14 +260,14 @@ export class OrdersService {
               'La orden ya está en curso: asigná otro técnico en lugar de dejarla sin asignar',
             ]);
           }
-          data.tecnico = { disconnect: true };
+          data.tecnicoId = null;
         }
         cambios.push('técnico');
       }
       if (dto.responsableId !== undefined) {
         const r = await tx.usuario.findFirst({ where: { id: dto.responsableId, tallerId: user.tallerId } });
         if (!r?.activo) throw new BadRequestException('Responsable inválido');
-        data.responsable = { connect: { id: dto.responsableId } };
+        data.responsableId = dto.responsableId;
         cambios.push('responsable');
       }
       if (reprioritizing) {
@@ -268,7 +284,7 @@ export class OrdersService {
   transition(user: AuthUser, id: string, dto: TransitionDto): Promise<OrdenResumenDto> {
     return this.mutate(user, id, (o) => {
       enforce(canTransition(o, dto.to, user), `No se puede mover a «${ESTADO_LABEL[dto.to]}»`);
-      const data: Prisma.OrdenUpdateInput = { estado: dto.to };
+      const data: Prisma.OrdenUncheckedUpdateInput = { estado: dto.to };
       if (dto.to === 'CERRADO') Object.assign(data, { fechaCierre: new Date(), resultado: o.resultado ?? 'REPARADO' });
       return {
         data,
@@ -328,7 +344,7 @@ export class OrdersService {
     return this.mutate(user, id, async (o, tx) => {
       enforce(canResolveEscalation(o, user), 'No se puede resolver el escalamiento');
       const esc = openEscalation(o)!;
-      const data: Prisma.OrdenUpdateInput = { escalada: false, motivoEscalado: null };
+      const data: Prisma.OrdenUncheckedUpdateInput = { escalada: false, motivoEscalado: null };
       let estadoNuevo: EstadoOrden | undefined;
 
       if (RESOLUCIONES_SIN_REPARACION.includes(dto.resolucion)) {
@@ -344,7 +360,7 @@ export class OrdersService {
           bloqueada: false,
           motivoBloqueo: null,
           validada: true,
-          validadaPor: { connect: { id: user.id } },
+          validadaPorId: user.id,
         });
       } else if (dto.resolucion === 'EN_ESPERA') {
         Object.assign(data, { bloqueada: true, motivoBloqueo: dto.texto });
@@ -355,7 +371,7 @@ export class OrdersService {
       } else if (dto.tecnicoId) {
         const t = await tx.usuario.findFirst({ where: { id: dto.tecnicoId, tallerId: user.tallerId } });
         if (!t?.roles.includes('TECNICO') || !t.activo) throw new BadRequestException('Técnico inválido');
-        data.tecnico = { connect: { id: dto.tecnicoId } };
+        data.tecnicoId = dto.tecnicoId;
       }
 
       await tx.escalamiento.update({
@@ -379,8 +395,10 @@ export class OrdersService {
   }
 
   abandon(user: AuthUser, id: string, motivo: string): Promise<OrdenResumenDto> {
-    return this.mutate(user, id, (o) => {
-      const listo = o.historial.findLast((h) => h.estadoNuevo === 'LISTO_PARA_RETIRAR');
+    return this.mutate(user, id, async (o, tx) => {
+      const listo = await tx.historial.findFirst({
+        where: { ordenId: id, estadoNuevo: 'LISTO_PARA_RETIRAR' }, orderBy: [{ fecha: 'desc' }, { id: 'desc' }], select: { fecha: true },
+      });
       enforce(canAbandon(o, user, listo?.fecha.getTime() ?? null, Date.now()), 'No se puede marcar como abandonado');
       return {
         data: { estado: 'CERRADO', fechaCierre: new Date(), resultado: 'ABANDONADO' },
@@ -461,7 +479,7 @@ export class OrdersService {
           estado: dto.to,
           fechaCierre: null,
           validada: false,
-          validadaPor: { disconnect: true },
+          validadaPorId: null,
           resultado: null,
           informeNoReparacion: null,
           avisoCliente: null,
@@ -477,31 +495,42 @@ export class OrdersService {
   validate(user: AuthUser, id: string, comentario: string): Promise<OrdenResumenDto> {
     return this.mutate(user, id, (o) => {
       enforce(canValidate(o, user), 'No se puede validar la orden');
-      return { data: { validada: true, validadaPor: { connect: { id: user.id } } }, tipo: 'VALIDACION', comentario };
+      return { data: { validada: true, validadaPorId: user.id }, tipo: 'VALIDACION', comentario };
     });
   }
 
   // ------------------------------------------------------------------ evidencia
+
+  /** Permiso, cupo de la orden y lugar en el disco: se controla antes de recibir el archivo. */
+  async assertPuedeSubir(user: AuthUser, id: string): Promise<void> {
+    const o = await this.loadVisible(this.prisma, user, id);
+    this.assertCanEditEvidence(user, o);
+    this.assertCupoEvidencias(o);
+    if (!(await this.storage.hayLugar())) {
+      eventoSeguridad('evidencia.disco_lleno', { usuario: user.id });
+      throw new ServiceUnavailableException('No hay espacio para guardar archivos. Avisale al administrador del sistema.');
+    }
+  }
 
   async addEvidence(user: AuthUser, id: string, file: UploadedEvidence | undefined): Promise<OrdenResumenDto> {
     if (!file) throw new BadRequestException('Falta el archivo de evidencia (campo «file»)');
     if (!EVIDENCE_MIME_TYPES.has(file.mimetype)) {
       throw new BadRequestException('La evidencia debe ser una foto (JPG, PNG, WebP, GIF, HEIC) o un PDF');
     }
-    if (!coincideFirma(file.mimetype, file.buffer)) {
-      throw new BadRequestException('El contenido del archivo no corresponde a una foto o un PDF');
+    const problema = problemaEvidencia(file.mimetype, file.buffer);
+    if (problema) {
+      eventoSeguridad('evidencia.rechazada', { usuario: user.id, orden: id, tipo: file.mimetype, motivo: problema });
+      throw new BadRequestException(problema);
     }
     // multer entrega el nombre en latin1: se recupera el UTF-8 original (tildes, ñ)
-    const nombre = Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 200);
+    const nombre = nombreSeguro(Buffer.from(file.originalname, 'latin1').toString('utf8'));
 
-    // Validar permisos antes de escribir en disco
-    const o = await this.loadVisible(this.prisma, user, id);
-    this.assertCanEditEvidence(user, o);
-
-    const ruta = await this.storage.save(id, file.buffer, nombre);
+    // El permiso ya lo controló UploadGuard antes de recibir el archivo, y mutate lo vuelve a mirar
+    const ruta = await this.storage.save(id, file.buffer, file.mimetype);
     try {
       return await this.mutate(user, id, async (fresh, tx) => {
         this.assertCanEditEvidence(user, fresh);
+        this.assertCupoEvidencias(fresh);
         await tx.evidencia.create({
           data: {
             ordenId: id,
@@ -529,7 +558,7 @@ export class OrdersService {
       ruta = ev.ruta;
       await tx.evidencia.delete({ where: { id: ev.id } });
       return {
-        data: { validada: false, validadaPor: { disconnect: true } },
+        data: { validada: false, validadaPorId: null },
         tipo: 'ACTUALIZACION',
         comentario: `Evidencia quitada: ${ev.nombreArchivo}`,
       };
@@ -547,7 +576,13 @@ export class OrdersService {
     return { path, mime: ev.tipoMime, nombre: ev.nombreArchivo };
   }
 
-  private assertCanEditEvidence(user: AuthUser, o: OrdenFull): void {
+  private assertCupoEvidencias(o: OrdenReglas): void {
+    if (o.evidencias.length >= MAX_EVIDENCIAS) {
+      throw new WorkflowException('La orden ya tiene muchas evidencias', [`Como máximo ${MAX_EVIDENCIAS} archivos por orden: quitá alguno para subir otro`]);
+    }
+  }
+
+  private assertCanEditEvidence(user: AuthUser, o: OrdenReglas): void {
     if (o.estado === 'CERRADO') throw new WorkflowException('La orden está cerrada');
     if (!canActOnOrder(user, o, 'edit')) throw new ForbiddenException('No podés modificar la evidencia de esta orden');
   }

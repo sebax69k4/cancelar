@@ -1,5 +1,5 @@
 interface ImportMetaEnv {
-  /** URL base de la API NestJS. Si no se define, la app usa el mock en localStorage. */
+  /** URL base de la API NestJS (obligatoria), ej. https://api.mitaller.com/api */
   readonly PUBLIC_API_URL?: string;
 }
 
