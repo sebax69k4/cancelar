@@ -52,6 +52,10 @@ function fromPrisma(e: Prisma.PrismaClientKnownRequestError): ErrorBody | null {
   if (e.code === 'P2002') return { statusCode: HttpStatus.CONFLICT, message: 'Ya existe un registro con esos datos' };
   if (e.code === 'P2025') return { statusCode: HttpStatus.NOT_FOUND, message: 'El registro no existe' };
   if (e.code === 'P2003') return { statusCode: HttpStatus.BAD_REQUEST, message: 'Referencia a un registro inexistente' };
+  // La base tardó demasiado (o no hay conexión libre): no se guardó nada, se puede reintentar
+  if (e.code === 'P2028' || e.code === 'P2024') {
+    return { statusCode: HttpStatus.SERVICE_UNAVAILABLE, message: 'La base de datos está tardando demasiado y no se guardó. Probá de nuevo en unos segundos.' };
+  }
   return null;
 }
 
@@ -75,6 +79,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     else if (exception instanceof Prisma.PrismaClientKnownRequestError) body = fromPrisma(exception);
     else body = fromBodyParser(exception);
 
+    if (body?.statusCode === HttpStatus.SERVICE_UNAVAILABLE) this.logger.error(exception instanceof Error ? exception.message : String(exception));
     if (!body) {
       this.logger.error(exception instanceof Error ? exception.stack : String(exception));
       body = { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Error interno del servidor' };
