@@ -14,10 +14,11 @@ API del sistema de workflow para el servicio técnico de PC y notebooks. Impleme
 4. [Arquitectura](#arquitectura)
 5. [Primer uso](#primer-uso)
 6. [Escalamientos](#escalamientos)
-7. [Endpoints](#endpoints)
-8. [Seguridad](#seguridad)
-9. [Pruebas](#pruebas)
-10. [Antes de producción](#antes-de-producción)
+7. [Plataforma: Moderador y Administrador](#plataforma-moderador-y-administrador)
+8. [Endpoints](#endpoints)
+9. [Seguridad](#seguridad)
+10. [Pruebas](#pruebas)
+11. [Antes de producción](#antes-de-producción)
 
 ---
 
@@ -173,6 +174,27 @@ Ciclo: **sin tomar → tomado → resuelto**. Lo atiende su nivel o uno superior
 **Automático** (tarea cada 10 minutos, `syncEscalations`; plazos en `ESCALATION_HOURS` de `src/domain/escalation.ts`): crítica abierta más de 24 h → nivel 2, más de 48 h → nivel 3; atrasada más de 24 h → nivel 2; bloqueada más de 48 h → nivel 2; nivel 2 sin tomar en 24 h → nivel 3. Una causa ya resuelta no se repite hasta que vuelve a pasar su plazo. Las órdenes en «Listo para retirar» no escalan.
 
 **Entrega:** Recepción cierra la orden si está validada. Al cerrar queda el `resultado`: Reparado, No reparable, Rechazado por el cliente o Abandonado (solo Admin, tras 60 días sin retirar).
+
+## Plataforma: Moderador y Administrador
+
+Están por encima de los talleres y administran el sistema, no el trabajo de un taller. Entran por `/plataforma` (la página no aparece en buscadores ni tiene enlaces), con su propia sesión: una sesión de taller no sirve ahí, ni al revés.
+
+| Puede | Moderador | Administrador |
+|---|---|---|
+| Ver los talleres: alta, personas, órdenes, última actividad | Sí | Sí |
+| Suspender o reactivar un taller (nadie del taller puede ingresar ni seguir usándolo) | Sí | Sí |
+| Suspender o reactivar la cuenta de una persona | Sí | Sí |
+| Ver el email de las personas | No | Sí |
+| Darle una contraseña nueva a quien perdió la suya | No | Sí |
+| Crear y suspender moderadores | No | Sí |
+| Leer la bitácora | No | Sí |
+
+Ninguno de los dos ve órdenes, clientes ni equipos.
+
+- **Primer Administrador:** no se crea desde la web. Se definen `PLATAFORMA_ADMIN_EMAIL`, `PLATAFORMA_ADMIN_NOMBRE` y `PLATAFORMA_ADMIN_CLAVE` (12 a 40 caracteres) en el entorno del servidor y se crea al arrancar, solo si todavía no hay ninguna cuenta de plataforma. Después hay que borrar `PLATAFORMA_ADMIN_CLAVE`. Otro Administrador se agrega igual: desde el servidor, nunca desde la web.
+- **Segundo factor obligatorio:** al primer ingreso se configura una app autenticadora (Google Authenticator, Microsoft Authenticator, Authy). Códigos TOTP de 6 dígitos (`src/plataforma/totp.ts`, RFC 6238), que no se pueden usar dos veces. El secreto se guarda cifrado con una clave derivada de `JWT_SECRET`: si se cambia `JWT_SECRET`, hay que volver a configurar el segundo factor.
+- **Sesión:** 1 hora, cookie `st_plataforma` con `SameSite=Strict`. Suspender una cuenta corta sus sesiones en el momento; cerrar sesión invalida el token.
+- **Bitácora** (`AccionPlataforma`): cada ingreso, intento fallido y acción queda con fecha, cuenta, taller e IP. Un disparador de la base de datos rechaza cualquier modificación o borrado, también desde la aplicación. Nunca guarda contraseñas.
 
 ## Endpoints
 

@@ -5,9 +5,11 @@ import '@/styles/global.css';
 
 interface Props {
   title: string;
+  /** Que los buscadores no la indexen (ej. la administración de la plataforma). */
+  noindex?: boolean;
 }
 
-const { title } = Astro.props;
+const { title, noindex = false } = Astro.props;
 ---
 
 <!doctype html>
@@ -15,6 +17,7 @@ const { title } = Astro.props;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title} · ServicioTécnico</title>
     <!-- Aplica estilo (clásico por defecto) y tema antes de pintar para evitar parpadeo -->

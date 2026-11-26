@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { TALLER_SUSPENDIDO } from './auth.guard';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { eventoSeguridad, ocultarEmail } from '../common/security-log';
 import { SERVICIOS_INICIALES } from '../domain/servicios';
@@ -22,12 +23,16 @@ export class AuthService {
   ) {}
 
   async login(email: string, password: string, ip?: string) {
-    const user = await this.prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await this.prisma.usuario.findUnique({ where: { email: email.toLowerCase() }, include: { taller: { select: { suspendido: true } } } });
     const hash = user?.passwordHash ?? (await this.dummyHash);
     const ok = await argon2.verify(hash, password).catch(() => false);
     if (!user || !user.activo || !ok) {
       eventoSeguridad('login.fallido', { ip, email: ocultarEmail(email), motivo: !user ? 'email' : !ok ? 'clave' : 'inactivo' });
       throw new UnauthorizedException('Email o contraseña incorrectos');
+    }
+    if (user.taller.suspendido) {
+      eventoSeguridad('login.taller_suspendido', { ip, usuario: user.id, taller: user.tallerId });
+      throw new ForbiddenException(TALLER_SUSPENDIDO);
     }
     eventoSeguridad('login.ok', { ip, usuario: user.id, taller: user.tallerId }, 'log');
     return { token: await this.jwt.signAsync(nuevaSesion(user.id)), user: toUsuario(user) };
