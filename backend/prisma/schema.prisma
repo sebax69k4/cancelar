@@ -133,6 +133,10 @@ model Taller {
   direccion   String?
   /// false hasta completar la configuración inicial: sin esto no se pueden crear órdenes
   configurado Boolean  @default(false)
+  /// suspendido por la plataforma: nadie del taller puede ingresar ni usar el sistema
+  suspendido       Boolean   @default(false)
+  motivoSuspension String?
+  suspendidoEn     DateTime?
   creadoEn    DateTime @default(now())
 
   usuarios  Usuario[]
@@ -348,4 +352,48 @@ model SesionCerrada {
   expira DateTime
 
   @@index([expira])
+}
+
+// ------------------------------------------------------------------ plataforma
+// Cuentas que administran el sistema entero. No pertenecen a ningún taller, no se crean desde
+// la web pública y no ven órdenes ni datos de clientes.
+
+enum RolPlataforma {
+  MODERADOR
+  ADMINISTRADOR
+}
+
+model CuentaPlataforma {
+  id             String        @id @default(cuid())
+  nombre         String
+  email          String        @unique
+  passwordHash   String
+  rol            RolPlataforma
+  activo         Boolean       @default(true)
+  /// secreto del segundo factor (TOTP), cifrado con una clave derivada de JWT_SECRET
+  totpSecreto    String?
+  totpActivo     Boolean       @default(false)
+  /// último paso de 30 s aceptado: un código no se puede usar dos veces
+  totpUltimoPaso Int?
+  sesionesDesde  DateTime?
+  creadoEn       DateTime      @default(now())
+
+  acciones AccionPlataforma[]
+}
+
+/// Bitácora de la plataforma: la base de datos no permite modificar ni borrar filas (ver la migración)
+model AccionPlataforma {
+  id        String   @id @default(cuid())
+  cuentaId  String?
+  accion    String
+  tallerId  Int?
+  usuarioId String?
+  detalle   String?
+  ip        String?
+  fecha     DateTime @default(now())
+
+  cuenta CuentaPlataforma? @relation(fields: [cuentaId], references: [id], onDelete: Restrict)
+
+  @@index([fecha])
+  @@index([tallerId])
 }

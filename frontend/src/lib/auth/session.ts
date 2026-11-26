@@ -32,7 +32,8 @@ export function loadSession(): Promise<Usuario | null> {
   loading ??= fetch(`${API_URL}/auth/me`, { credentials: 'include' })
     .then(async (r): Promise<Usuario | null> => {
       if (r.ok) return (await r.json()) as Usuario;
-      if (r.status === 401) return null;
+      // 403: el taller fue suspendido. Sin sesión; al querer ingresar, el login muestra el motivo
+      if (r.status === 401 || r.status === 403) return null;
       throw new Error(`HTTP ${r.status}`);
     })
     .then((u) => {

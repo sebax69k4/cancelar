@@ -13,6 +13,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { EquipmentModule } from './equipment/equipment.module';
 import { HealthController } from './health/health.controller';
 import { OrdersModule } from './orders/orders.module';
+import { PlataformaModule } from './plataforma/plataforma.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SetupModule } from './setup/setup.module';
 
@@ -39,6 +40,7 @@ const porIp = (req: Record<string, unknown>) => (typeof req.ip === 'string' ? re
     OrdersModule,
     DashboardModule,
     SetupModule,
+    PlataformaModule,
   ],
   controllers: [HealthController, CatalogController],
   // El ThrottlerGuard va antes que el AuthGuard (registrado en AuthModule)

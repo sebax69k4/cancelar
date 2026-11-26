@@ -1,0 +1,8 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PlataformaPage from '@/components/islands/PlataformaPage';
+---
+
+<BaseLayout title="Plataforma" noindex>
+  <PlataformaPage client:only="react" />
+</BaseLayout>

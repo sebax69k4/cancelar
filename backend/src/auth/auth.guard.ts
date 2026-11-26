@@ -10,6 +10,9 @@ import { sesionVigente, type SessionPayload } from './sessions';
 
 export const SESSION_COOKIE = 'st_session';
 
+/** Lo que ve alguien de un taller que la plataforma suspendió. */
+export const TALLER_SUSPENDIDO = 'Tu taller está suspendido. Comunicate con el soporte del sistema.';
+
 /** Token de la request: la cookie de sesión o, para clientes que no son el navegador, «Bearer». */
 export function extraerToken(req: Request): string | null {
   const cookies = req.cookies as Record<string, string | undefined> | undefined;
@@ -50,11 +53,14 @@ export class AuthGuard implements CanActivate {
     const [user, cerrada] = await Promise.all([
       this.prisma.usuario.findUnique({
         where: { id: payload.sub },
-        select: { id: true, nombre: true, email: true, roles: true, activo: true, tallerId: true, sesionesDesde: true },
+        select: { id: true, nombre: true, email: true, roles: true, activo: true, tallerId: true, sesionesDesde: true, taller: { select: { suspendido: true } } },
       }),
       payload.jti ? this.prisma.sesionCerrada.findUnique({ where: { jti: payload.jti }, select: { jti: true } }) : null,
     ]);
+    // Un token de la plataforma no sirve como sesión de taller (y su «sub» no es una persona de un taller)
+    if ((payload as { k?: unknown }).k === 'plataforma') throw new UnauthorizedException('La sesión ya no es válida. Volvé a iniciar sesión.');
     if (!user || !user.activo) throw new UnauthorizedException('Usuario inexistente o inactivo');
+    if (user.taller.suspendido) throw new ForbiddenException(TALLER_SUSPENDIDO);
     if (cerrada) {
       eventoSeguridad('token.cerrado_reusado', { ip: req.ip, usuario: user.id, ruta: req.path });
       throw new UnauthorizedException('La sesión ya no es válida. Volvé a iniciar sesión.');
