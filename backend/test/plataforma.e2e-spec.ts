@@ -19,6 +19,7 @@ process.env.PLATAFORMA_ADMIN_CLAVE = 'clave-de-plataforma-1';
 import { AppModule } from '../src/app.module';
 import { codigoTotp, pasoActual } from '../src/plataforma/totp';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { PlataformaService } from '../src/plataforma/plataforma.service';
 import { configureApp } from '../src/setup';
 
 type Agent = ReturnType<typeof request.agent>;
@@ -74,6 +75,19 @@ describe('Plataforma (e2e)', () => {
   afterAll(async () => {
     await app?.close();
     await dropTestSchema(process.env.DATABASE_URL!);
+  });
+
+  it('PLATAFORMA_SIN_2FA saltea el segundo factor; sin la variable es obligatorio', async () => {
+    // Se llama al servicio directo (no al endpoint) para no gastar el límite de intentos de los otros tests
+    const svc = app.get(PlataformaService);
+    try {
+      process.env.PLATAFORMA_SIN_2FA = 'true';
+      expect((await svc.login(ADMIN.email, ADMIN.password, undefined, '127.0.0.1')).estado).toBe('listo');
+      delete process.env.PLATAFORMA_SIN_2FA;
+      expect((await svc.login(ADMIN.email, ADMIN.password, undefined, '127.0.0.1')).estado).toBe('configurar');
+    } finally {
+      delete process.env.PLATAFORMA_SIN_2FA;
+    }
   });
 
   it('el primer Administrador sale del entorno del servidor y tiene que configurar el segundo factor', async () => {
