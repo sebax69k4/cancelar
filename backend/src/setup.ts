@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { limiteCuerpo } from './common/body-limit';
 import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 import { soloParaLaApp } from './common/navegacion';
+import { ocultarLimites } from './common/ocultar-limites';
 import { origenPermitido } from './common/origin';
 import type { Env } from './config/env';
 
@@ -15,6 +16,7 @@ export function configureApp(app: INestApplication): void {
   // Detrás de un proxy: la IP real del cliente (límites de login, registro de seguridad)
   const proxies = config.get('TRUST_PROXY', { infer: true });
   if (proxies > 0) (app.getHttpAdapter().getInstance() as { set(k: string, v: number): void }).set('trust proxy', proxies);
+  app.use(ocultarLimites); // no revelar los umbrales del limitador en las cabeceras
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }));
   app.use(soloParaLaApp(process.env.NODE_ENV !== 'production')); // abrir la API en el navegador: 404
   app.use(cookieParser());

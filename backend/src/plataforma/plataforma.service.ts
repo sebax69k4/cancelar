@@ -101,6 +101,14 @@ export class PlataformaService implements OnApplicationBootstrap {
       throw new UnauthorizedException('Email o contraseña incorrectos');
     }
 
+    // ---- Saltea el segundo factor si PLATAFORMA_SIN_2FA=true (ingresa con email y contraseña, sin
+    // app autenticadora). Pensado para pruebas. OJO: si se activa en producción, estas cuentas de
+    // alto privilegio quedan protegidas solo por la contraseña; volvé a quitar la variable al terminar.
+    if (process.env.PLATAFORMA_SIN_2FA === 'true') {
+      await this.registrar(c.id, 'ingreso', { ip, detalle: 'sin segundo factor (modo pruebas)' });
+      return { estado: 'listo', token: await this.firmar(c.id, 'completa'), cuenta: toCuenta(c) };
+    }
+
     // Primera vez: hay que configurar el segundo factor antes de poder hacer nada
     if (!c.totpActivo) {
       const secreto = c.totpSecreto ? descifrarSecreto(c.totpSecreto, this.secretoJwt) : nuevoSecretoTotp();

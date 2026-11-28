@@ -471,6 +471,13 @@ describe('Seguridad y validaciones (e2e)', () => {
       expect(res.headers['content-security-policy']).toMatch(/default-src 'self'/);
     });
 
+    it('no revela los umbrales del limitador en las cabeceras', async () => {
+      // El login tiene @Throttle propio: es la ruta que más tentaría a exponer el límite.
+      // (Que el límite siga activo lo prueba el bloque «sesiones y fuerza bruta».)
+      const res = await anon().get('/api/setup/status').expect(200);
+      expect(Object.keys(res.headers).filter((h) => h.toLowerCase().startsWith('x-ratelimit'))).toEqual([]);
+    });
+
     it('los errores no muestran detalles internos', async () => {
       const res = await recep.post('/api/clients').set('Content-Type', 'application/json').send('{"nombre":').expect(400);
       expect(Object.keys(res.body as object).sort()).toEqual(['message', 'statusCode']);
